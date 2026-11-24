@@ -7,11 +7,14 @@ import { launch } from './chromium.mjs';
 import { startMqttBroker, startNostrRelay } from './servers.mjs';
 
 const filter = process.argv[2] ?? '';
+// HOSTLESS_LIVE=1: no local endpoints, the demos use the default public relays, brokers and signaling
+const LIVE = process.env.HOSTLESS_LIVE === '1';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode = () => Array.from({ length: 10 }, () => CODE_ALPHABET[Math.floor(Math.random() * 32)]).join('');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function until(what, fn, timeout = 30_000, every = 100) {
+  if (LIVE) timeout *= 3;
   const t0 = Date.now();
   let last;
   while (Date.now() - t0 < timeout) {
@@ -56,7 +59,8 @@ async function profile() {
   return { ctx, page };
 }
 
-const q = (extra = '') => `signal=${encodeURIComponent(signal.url)}&nostr=${encodeURIComponent(relay.url)}&mqtt=${encodeURIComponent(broker.url)}&storage=${encodeURIComponent(relay.url)}${extra}`;
+const q = (extra = '') =>
+  LIVE ? `live=1${extra}` : `signal=${encodeURIComponent(signal.url)}&nostr=${encodeURIComponent(relay.url)}&mqtt=${encodeURIComponent(broker.url)}&storage=${encodeURIComponent(relay.url)}${extra}`;
 const tttState = (page) => page.evaluate(() => window.__ttt ?? null);
 
 async function playTtt(a, b, { stopBefore = 0, onMove } = {}) {
@@ -166,37 +170,24 @@ const scenarios = {
 
   async 'a player who comes back after the winner left gets the result from the mailbox'() {
     const { code, A, B } = await tttPair('&paths=nostr');
-    // play until one move remains for A or the game would end: stop when 3 cells are left
+    // first-free play: the opener wins with its 4th mark (cell 6) — stop one move before that
     await playTtt(A.page, B.page, { stopBefore: 3 });
-    let s = await tttState(A.page);
-    // make sure it is A's turn: if not, B moves once
-    if (s.state.next !== s.mySeat) {
-      const free = s.state.board.findIndex((c) => c === null);
-      await B.page.click(`#board button[data-cell="${free}"]`);
-      await until('B move arrives', async () => (await tttState(A.page)).history > s.history);
-      s = await tttState(A.page);
-    }
-    if (s.phase === 'finished') return console.log('  (game ended early, nothing to test)');
-    // B goes away; A plays to the end against an empty seat? A needs B's moves, so instead:
-    // B closes its tab; A makes its move; if the game is not over A cannot finish alone. Pick a
-    // finishing move for A when one exists, otherwise skip.
-    const winning = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => {
-      if (s.state.board[c] !== null) return false;
-      const b = s.state.board.slice();
-      b[c] = s.mySeat;
-      const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
-      return lines.some((l) => l.every((k) => b[k] === s.mySeat)) || b.every((x) => x !== null);
-    });
-    if (winning === undefined) return console.log('  (no finishing move available, nothing to test)');
-    await B.page.close();
-    await A.page.click(`#board button[data-cell="${winning}"]`);
-    await until('A finished', async () => (await tttState(A.page)).phase === 'finished');
-    await until('A stored the final', async () => relay.relay.stored.some((e) => e.kind === 30078), 30_000);
-    await A.ctx.close();
-    const page = await B.ctx.newPage();
-    await page.goto(`${base}/tictactoe.html?${q('&paths=nostr')}#room=${code}`);
-    await until('B finished from the mailbox', async () => (await tttState(page))?.phase === 'finished', 90_000, 500);
-    await B.ctx.close();
+    const s = await tttState(A.page);
+    assert.equal(s.phase, 'playing');
+    const [winner, leaver, leaverUrl] = s.state.next === s.mySeat ? [A, B, `?${q('&paths=nostr')}`] : [B, A, `?role=host&${q('&paths=nostr')}`];
+    // the other player closes the game; the winner makes the last move, then leaves too
+    await leaver.page.close();
+    await winner.page.click('#board button[data-cell="6"]');
+    await until('the winner finished', async () => (await tttState(winner.page)).phase === 'finished');
+    if (!LIVE) await until('the final stored', async () => relay.relay.stored.some((e) => e.kind === 30078), 30_000);
+    else await sleep(15_000);
+    await winner.ctx.close();
+    // the other player comes back: nobody is online, the result comes from the relays
+    const page = await leaver.ctx.newPage();
+    await page.goto(`${base}/tictactoe.html${leaverUrl}#room=${code}`);
+    await until('the result from the mailbox', async () => (await tttState(page))?.phase === 'finished', 90_000, 500);
+    assert.equal((await tttState(page)).history, 7);
+    await leaver.ctx.close();
   },
 
   async 'co-op canvas converges for concurrent painters'() {

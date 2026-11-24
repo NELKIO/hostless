@@ -136,7 +136,7 @@ const picture = canvas.fold(applyPixel, blank);    // same total order on every 
 ## Progress on every device
 
 ```js
-import { createDeviceSync, ledger, deviceId } from 'hostless';
+import { createDeviceSync, DeviceSync, ledger, deviceId } from 'hostless';
 
 const me = deviceId('my-game');
 const sync = createDeviceSync({

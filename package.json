@@ -11,7 +11,10 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "AGENTS.md",
+    "docs/*.md"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,17 +31,23 @@
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./browser": "./dist/browser/hostless.js",
+    "./ui/register": {
+      "types": "./dist/ui/register.d.ts",
+      "default": "./dist/ui/register.js"
+    }
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:browser": "node tests/browser/run.mjs",
-    "test:live": "node tests/live/run.mjs",
-    "scan": "node scripts/scan-endpoints.mjs",
-    "demo": "node scripts/build.mjs --demo && node scripts/serve.mjs"
+    "test:browser": "node scripts/build.mjs --demo && node tests/browser/run.mjs",
+    "test:live": "node scripts/build.mjs --demo && node tests/live/run.mjs",
+    "scan": "node scripts/build.mjs && node scripts/scan-endpoints.mjs",
+    "demo": "node scripts/build.mjs --demo && node scripts/serve.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "multiplayer",
@@ -71,5 +80,13 @@
     "typescript": "5.8",
     "vitest": "^3.2.7",
     "ws": "^8.23.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NELKIO/hostless.git"
+  },
+  "homepage": "https://nelkio.github.io/hostless/",
+  "bugs": {
+    "url": "https://github.com/NELKIO/hostless/issues"
   }
 }
