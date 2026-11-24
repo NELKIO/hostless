@@ -9,11 +9,12 @@
 </head>
 <body>
   <main>
-    <header>
-      <h1><a href="./">hostless</a> · connection check</h1>
-    </header>
+    <div class="head">
+      <h1>Connection check</h1>
+      <p>Shows which public relays and brokers this network reaches, with a test message through each, and whether a direct WebRTC channel is likely. If someone can't connect, ask them to run this and send you the result.</p>
+      <div class="tags"><span class="tag">checkNetwork()</span><span class="tag">STUN NAT type</span></div>
+    </div>
     <section class="card">
-      <p class="muted">Which public relays and brokers this network reaches (with an echo through each), and whether a direct WebRTC channel is likely. Run it on the network that has trouble and paste the result into a bug report.</p>
       <hostless-netcheck id="check"></hostless-netcheck>
     </section>
   </main>

@@ -9,27 +9,49 @@
 </head>
 <body>
   <main>
-    <header>
-      <h1><a href="./">hostless</a> · tic-tac-toe</h1>
-      <hostless-link id="link"></hostless-link>
-    </header>
-    <section class="card" id="lobby-card">
-      <p class="muted">A turn-based match (TurnMatch): moves are signed, saved before they are sent, and survive reloads. Close this tab mid-game and reopen the link.</p>
-      <hostless-lobby id="lobby"></hostless-lobby>
-    </section>
-    <section class="card" id="game" hidden>
-      <div class="row" style="justify-content: space-between">
-        <strong id="players"></strong>
-        <span class="muted" id="seats"></span>
+    <div class="head">
+      <h1>Tic-tac-toe</h1>
+      <p>A turn-based match between two browsers with no server in between. Close the tab mid-game and open the link again: the match resumes where it stopped.</p>
+      <div class="tags"><span class="tag a">TurnMatch</span><span class="tag">signed moves</span><span class="tag">write-ahead journal</span><span class="tag">mailbox</span></div>
+    </div>
+    <div class="layout">
+      <div>
+        <section class="card" id="lobby-card">
+          <h2>Start a game</h2>
+          <hostless-lobby id="lobby"></hostless-lobby>
+        </section>
+        <section class="card" id="game" hidden>
+          <div class="players">
+            <div class="player" id="p0"><span class="mark mx">✕</span><span class="who"><b>—</b><small></small></span></div>
+            <span class="vs">VS</span>
+            <div class="player" id="p1"><span class="mark mo">◯</span><span class="who"><b>—</b><small></small></span></div>
+          </div>
+          <div class="board" id="board" role="grid" aria-label="board"></div>
+          <div class="center"><span class="pill" id="status" aria-live="polite"></span></div>
+          <div class="row" style="justify-content: center; margin-top: 18px">
+            <button id="invite" hidden>Copy invite link</button>
+            <button id="again" class="primary" hidden>New game</button>
+            <button id="leave">Leave</button>
+          </div>
+        </section>
       </div>
-      <div class="board" id="board"></div>
-      <div class="status" id="status" aria-live="polite"></div>
-      <div class="row" style="justify-content: center; margin-top: 12px">
-        <button id="invite" hidden>Copy invite</button>
-        <button id="leave">Leave</button>
-        <button id="again" class="primary" hidden>New game</button>
-      </div>
-    </section>
+      <aside class="side">
+        <section class="card">
+          <h2>Connection</h2>
+          <hostless-link id="link" hidden></hostless-link>
+          <p class="muted" id="conn" style="margin: 8px 0 0; font-size: 14px">Not in a room yet.</p>
+        </section>
+        <section class="card">
+          <h2>What to try</h2>
+          <ul class="how">
+            <li><span><b>Reload mid-game.</b> Your seat and moves come back from local storage.</span></li>
+            <li><span><b>Kill the network.</b> Moves wait and are delivered when you're back online.</span></li>
+            <li><span><b>Try a VPN.</b> If WebRTC can't connect, the game switches to the relays.</span></li>
+            <li><span><b>Leave after the last move.</b> The other player still gets the result from the relays.</span></li>
+          </ul>
+        </section>
+      </aside>
+    </div>
   </main>
   <script type="module" src="tictactoe.js"></script>
 </body>

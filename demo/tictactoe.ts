@@ -1,7 +1,8 @@
 import { createTurnMatch, inviteLink, parseHostHint, parseRoomCode, type TurnEngine, type TurnMatch, type Hosted } from '../src/index.js';
 import { defineHostlessElements } from '../src/ui/index.js';
-import { $, connectOptions, expose, savedRole, storageRelays } from './common.js';
+import { $, chrome, connectOptions, expose, savedRole, storageRelays } from './common.js';
 
+chrome();
 defineHostlessElements();
 
 interface Ttt {
@@ -45,32 +46,61 @@ for (let i = 0; i < 9; i++) {
   board.append(b);
 }
 
+function winningLine(board: (number | null)[]): number[] {
+  return LINES.find((l) => board[l[0]] !== null && l.every((i) => board[i] === board[l[0]])) ?? [];
+}
+
+let shown = 0;
 function render() {
   if (!match) return;
   const s = match.state;
   const mine = match.mySeat;
   const marks = ['✕', '◯'];
+  const win = s ? winningLine(s.board) : [];
   [...board.children].forEach((el, i) => {
     const b = el as HTMLButtonElement;
     const v = s?.board[i] ?? null;
     b.textContent = v === null ? '' : marks[v];
+    b.className = v === null ? '' : v === 0 ? 'x' : 'o';
+    if (win.includes(i)) b.classList.add('win');
     b.disabled = !match!.myTurn || v !== null;
   });
-  $('#players').textContent = s ? `${marks[0]} ${s.names[0]} vs ${marks[1]} ${s.names[1]}` : `Room ${match.room.code}`;
-  const st = $('#status');
+  // animate only the newest mark
+  const count = s?.board.filter((c) => c !== null).length ?? 0;
+  if (count > shown && match.history.length) {
+    const last = match.history.at(-1)!.m as number;
+    board.children[last]?.classList.add('pop');
+  }
+  shown = count;
   const phase = match.phase;
-  if (phase === 'lobby') st.textContent = match.room.getPeers().length ? 'Starting…' : 'Waiting for the other player — send them the link.';
-  else if (phase === 'stopped') st.textContent = `Match stopped (${match.stopReason}).`;
-  else if (phase === 'finished') {
+  for (const seat of [0, 1]) {
+    const card = $(`#p${seat}`);
+    const names = s?.names ?? [];
+    card.querySelector('b')!.textContent = names[seat] ?? (seat === mine ? name : 'Waiting…');
+    const peerStatus = mine === null ? '' : seat === mine ? 'you' : match.seatStatus(seat) ?? '';
+    card.querySelector('small')!.textContent = peerStatus;
+    card.classList.toggle('turn', phase === 'playing' && match.turn === seat);
+  }
+  const st = $('#status');
+  st.className = 'pill';
+  if (phase === 'lobby') {
+    st.classList.add('wait');
+    st.textContent = match.room.getPeers().length ? 'Starting…' : 'Waiting for the other player…';
+  } else if (phase === 'stopped') {
+    st.textContent = `Match stopped (${match.stopReason})`;
+  } else if (phase === 'finished') {
     const r = match.result!;
-    st.textContent = r.draw ? 'Draw.' : r.winner === mine ? 'You won! 🎉' : 'You lost.';
+    st.classList.add('end');
+    st.textContent = r.draw ? 'Draw' : r.winner === mine ? 'You won 🎉' : 'You lost';
   } else {
     const other = match.seatStatus(1 - (mine ?? 0));
-    st.textContent = match.myTurn ? 'Your move.' : other === 'online' ? 'Their move…' : `Their move… (opponent ${other})`;
+    st.classList.add(match.myTurn ? 'go' : 'wait');
+    st.textContent = match.myTurn ? 'Your move' : other === 'online' ? 'Their move…' : `Their move… (opponent ${other})`;
   }
-  $('#seats').textContent = match.room.getPeers().map((p) => `${String(p.meta.name ?? p.id.slice(0, 6))}: ${p.route ?? '—'}`).join(' · ');
+  const peer = match.room.getPeers()[0];
+  $('#conn').textContent = peer ? (peer.route === 'direct' ? 'Direct WebRTC channel to the other player.' : peer.route === 'relay' ? 'Through public relays: WebRTC could not connect (or is still trying).' : 'Looking for a path…') : `Room ${match.room.code}. Nobody else here yet.`;
   $('#again').hidden = phase !== 'finished' && phase !== 'stopped';
-  expose('__ttt', { phase, state: s, mySeat: mine, history: match.history.length, matchId: match.matchId, route: match.room.getPeers()[0]?.route ?? null, result: match.result });
+  expose('__ttt', { phase, state: s, mySeat: mine, history: match.history.length, matchId: match.matchId, route: peer?.route ?? null, result: match.result });
 }
 
 async function start(code: string, role: 'host' | 'guest') {
@@ -79,12 +109,14 @@ async function start(code: string, role: 'host' | 'guest') {
   // guests follow only the host named in the invite link (if it names one)
   match = await createTurnMatch({ app: APP, code, role, engine: ticTacToe, meta: { name }, host: role === 'guest' ? parseHostHint(location.href) : null, mailboxRelays: storageRelays(), ...connectOptions() });
   if (role === 'host') {
-    const link = inviteLink(code, { host: match.room.peerId });
+    const invite = inviteLink(code, { host: match.room.peerId });
     const button = $('#invite');
     button.hidden = false;
-    button.addEventListener('click', () => void navigator.clipboard?.writeText(link).then(() => (button.textContent = 'Copied ✓')));
+    button.addEventListener('click', () => void navigator.clipboard?.writeText(invite).then(() => (button.textContent = 'Copied ✓')));
   }
-  ($('#link') as HTMLElement & { room: unknown }).room = match.room;
+  const link = $('#link') as HTMLElement & { room: unknown };
+  link.room = match.room;
+  link.hidden = false;
   match.on('change', render);
   match.room.on('peer-join', render);
   match.room.on('route', render);
