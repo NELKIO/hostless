@@ -98,6 +98,32 @@ async function tttPair(extra = '') {
 }
 
 const scenarios = {
+  async 'current demo pages do not load stale assets from a previous design'() {
+    const { ctx, page } = await profile();
+    await page.setViewportSize({ width: 900, height: 700 });
+    try {
+      // Simulate a cache that still serves the previous deployment at its unversioned URLs.
+      await page.route(`${base}/style.css`, (route) => route.fulfill({ contentType: 'text/css', body: 'body, main { margin: 0; }' }));
+      await page.route(/\/(tictactoe|canvas|clicker|netcheck)\.js$/, (route) => route.fulfill({
+        contentType: 'text/javascript',
+        body: `document.body.insertAdjacentHTML('afterbegin', '<header class="topbar"><img src="logo.svg" alt=""><nav>Old demo navigation</nav></header>');
+               document.body.insertAdjacentHTML('beforeend', '<footer class="foot">Static pages · no server · MIT</footer>');`,
+      }));
+      for (const [path, widget] of [
+        ['tictactoe.html', 'hostless-lobby'], ['canvas.html', 'hostless-lobby'],
+        ['clicker.html', 'hostless-sync'], ['netcheck.html', 'hostless-netcheck'], ['index.html', null],
+      ]) {
+        await page.goto(`${base}/${path}?${q()}`);
+        assert.equal(await page.locator('.topbar, .foot').count(), 0, `${path}: old navigation or footer was loaded`);
+        const maxWidth = await page.locator('main').evaluate((el) => getComputedStyle(el).maxWidth);
+        assert.equal(maxWidth, '560px', `${path}: current centering stylesheet was not loaded`);
+        if (widget) assert.ok(await page.locator(`${widget}:defined`).count(), `${path}: current entry script did not run`);
+      }
+    } finally {
+      await ctx.close();
+    }
+  },
+
   async 'tic-tac-toe over a direct WebRTC channel'() {
     const { A, B } = await tttPair();
     await until('a direct route', async () => (await tttState(A.page)).route === 'direct' && (await tttState(B.page)).route === 'direct', 30_000);

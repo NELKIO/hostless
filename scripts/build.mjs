@@ -2,10 +2,10 @@
 // dist/browser/ for pages without a build step (Trystero is a separate chunk loaded only when the
 // direct path starts). `--demo` also bundles the demo site into demo-dist/.
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import * as esbuild from 'esbuild';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -40,9 +40,10 @@ if (demo) {
   const out = join(root, 'demo-dist');
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  const pages = readdirSync(join(root, 'demo')).filter((f) => f.endsWith('.ts'));
-  await esbuild.build({
-    entryPoints: pages.map((p) => join(root, 'demo', p)),
+  const source = join(root, 'demo');
+  const files = readdirSync(source);
+  const { metafile } = await esbuild.build({
+    entryPoints: files.filter((f) => f.endsWith('.ts')).map((f) => join(source, f)),
     outdir: out,
     bundle: true,
     splitting: true,
@@ -50,9 +51,31 @@ if (demo) {
     target: 'es2022',
     minify: true,
     sourcemap: true,
+    metafile: true,
+    entryNames: '[name]-[hash]',
     chunkNames: 'chunks/[name]-[hash]',
   });
-  for (const f of readdirSync(join(root, 'demo'))) if (!f.endsWith('.ts')) cpSync(join(root, 'demo', f), join(out, f), { recursive: true });
+
+  // New HTML must never load a cached entry script or stylesheet from the previous deployment.
+  const assets = new Map();
+  for (const [file, { entryPoint }] of Object.entries(metafile.outputs)) {
+    if (entryPoint && file.endsWith('.js')) assets.set(`${basename(entryPoint, '.ts')}.js`, basename(file));
+  }
+  const style = readFileSync(join(source, 'style.css'));
+  const styleName = `style-${createHash('sha256').update(style).digest('hex').slice(0, 12)}.css`;
+  assets.set('style.css', styleName);
+  writeFileSync(join(out, styleName), style);
+
+  for (const f of files) {
+    if (f.endsWith('.ts') || f === 'style.css') continue;
+    if (f.endsWith('.html')) {
+      const html = readFileSync(join(source, f), 'utf8');
+      writeFileSync(join(out, f), html.replace(/\b(href|src)="([^"]+)"/g, (match, attr, url) =>
+        assets.has(url) ? `${attr}="${assets.get(url)}"` : match));
+    } else {
+      cpSync(join(source, f), join(out, f), { recursive: true });
+    }
+  }
   writeFileSync(join(out, '.nojekyll'), '');
   console.log(`demo → ${out}`);
 }
