@@ -42,14 +42,50 @@ behind symmetric NATs, VPNs, corporate Wi‑Fi and some mobile carriers, and a r
 
 hostless is the other half, extracted from three games played across countries over flaky networks:
 
-|  |  |
-|---|---|
-| 🛰️ **Works where WebRTC doesn't** | Every message rides the direct channel *and* falls back to public Nostr relays and MQTT brokers within one timeout. Same match, no reconnect screen, no TURN server. |
-| 🧱 **Survives bad networks** | Sequence numbers, selective acks, retransmission on every path, congestion control, and connection hopping around DPI boxes that freeze sockets after a few KB. |
-| 💾 **Survives the tab** | Moves are signed and written to disk *before* they are sent. Reload, crash, close the laptop: the seat comes back with the same identity and history. |
-| 📬 **Results arrive late** | A player who returns days later gets the verified final result from a relay mailbox, even if everyone else has left. |
-| 🔄 **Progress on every device** | An encrypted CRDT document on Nostr, linked with a key in a link. Offline progress on two devices adds up — never doubles. |
-| 🔐 **Private and tamper-proof** | Rooms derive from the code with a slow KDF; relays see random topics and ciphertext. Pairwise encryption between players; every move, op and hello is Schnorr-signed. |
+<table>
+<tr>
+<td width="50%" valign="top">
+
+🛰️ **Works where WebRTC doesn't**<br>
+Every message rides the direct channel *and* falls back to public Nostr relays and MQTT brokers within one timeout. Same match, no reconnect screen, no TURN server.
+
+</td>
+<td width="50%" valign="top">
+
+🧱 **Survives bad networks**<br>
+Sequence numbers, selective acks, retransmission on every path, congestion control, and connection hopping around DPI boxes that freeze sockets after a few KB.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+💾 **Survives the tab**<br>
+Moves are signed and written to disk *before* they are sent. Reload, crash, close the laptop: the seat comes back with the same identity and history.
+
+</td>
+<td width="50%" valign="top">
+
+📬 **Results arrive late**<br>
+A player who returns days later gets the verified final result from a relay mailbox, even if everyone else has left.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+🔄 **Progress on every device**<br>
+An encrypted CRDT document on Nostr, linked with a key in a link. Offline progress on two devices adds up — never doubles.
+
+</td>
+<td width="50%" valign="top">
+
+🔐 **Private and tamper-proof**<br>
+Rooms derive from the code with a slow KDF; relays see random topics and ciphertext. Pairwise encryption between players; every move, op and hello is Schnorr-signed.
+
+</td>
+</tr>
+</table>
 
 ## Contents
 
