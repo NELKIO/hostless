@@ -37,14 +37,19 @@ export function schnorrVerify(signature: Uint8Array, message: Uint8Array, public
   }
 }
 
+const validIds = new Set<string>();
+
 export function isPeerId(value: unknown): value is string {
   if (!isHex(value, 64)) return false;
+  if (validIds.has(value)) return true;
   try {
     schnorr.utils.lift_x(BigInt('0x' + value));
-    return true;
   } catch {
     return false;
   }
+  validIds.add(value);
+  if (validIds.size > 4096) validIds.delete(validIds.values().next().value as string);
+  return true;
 }
 
 /**
