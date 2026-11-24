@@ -99,7 +99,7 @@ That is the whole network code. Reload the page mid-game and it resumes.
 | two tabs open the same game | Web Locks give the seat to one tab; the other is told the seat is busy |
 | storage stops accepting writes | moves that cannot be stored are not sent (no replaying a turn after reload) |
 | the opponent closed the game for good | after a timeout the seat is "waiting"; if they finished the match, the final history is fetched from the relay mailbox and verified |
-| someone else has the code | they can join (codes are invitations), but cannot forge another player's moves, ops or identity |
+| someone else has the code | they can join (codes are invitations), but cannot forge another player's moves, ops or identity; invite links can name the host (`inviteLink(code, { host })`) so guests ignore anyone else starting a match |
 | the other player runs an older build | protocol versions never link; different game rules are detected at the start (`stop: 'version'`) |
 
 ## Pieces
@@ -161,7 +161,7 @@ save = { xp: ledger.record(save.xp, me, { xp: 120 }) };   // offline progress on
 ## Development
 
 ```sh
-npm test               # 170+ unit/integration tests (fake networks, fuzzed schedules, property tests)
+npm test               # 190 unit/integration tests (fake networks, fuzzed schedules, property tests)
 npm run test:browser   # Chromium × 2 profiles, real WebRTC, local relays: 8 end-to-end scenarios
 npm run test:live      # the same through public relays and brokers
 npm run scan           # re-check the default public endpoints

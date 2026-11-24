@@ -1,4 +1,4 @@
-import { createTurnMatch, parseRoomCode, type TurnEngine, type TurnMatch, type Hosted } from '../src/index.js';
+import { createTurnMatch, inviteLink, parseHostHint, parseRoomCode, type TurnEngine, type TurnMatch, type Hosted } from '../src/index.js';
 import { defineHostlessElements } from '../src/ui/index.js';
 import { $, connectOptions, expose, savedRole, storageRelays } from './common.js';
 
@@ -76,7 +76,14 @@ function render() {
 async function start(code: string, role: 'host' | 'guest') {
   $('#lobby-card').hidden = true;
   $('#game').hidden = false;
-  match = await createTurnMatch({ app: APP, code, role, engine: ticTacToe, meta: { name }, mailboxRelays: storageRelays(), ...connectOptions() });
+  // guests follow only the host named in the invite link (if it names one)
+  match = await createTurnMatch({ app: APP, code, role, engine: ticTacToe, meta: { name }, host: role === 'guest' ? parseHostHint(location.href) : null, mailboxRelays: storageRelays(), ...connectOptions() });
+  if (role === 'host') {
+    const link = inviteLink(code, { host: match.room.peerId });
+    const button = $('#invite');
+    button.hidden = false;
+    button.addEventListener('click', () => void navigator.clipboard?.writeText(link).then(() => (button.textContent = 'Copied ✓')));
+  }
   ($('#link') as HTMLElement & { room: unknown }).room = match.room;
   match.on('change', render);
   match.room.on('peer-join', render);
