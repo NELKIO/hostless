@@ -49,6 +49,7 @@ class Medium {
   readonly blocked = new Set<string>();
   readonly frozen = new Set<PeerId>();
   up = true;
+  observers = new Set<(frame: Uint8Array, from: PeerId, to: PeerId | null) => void>();
   stats: MediumStats = { sent: 0, delivered: 0, dropped: 0, bytes: 0 };
   constructor(
     readonly name: string,
@@ -61,6 +62,7 @@ class Medium {
   }
 
   transmit(from: MemoryPath, to: PeerId | null, frame: Uint8Array): void {
+    for (const o of this.observers) o(frame.slice(), from.self, to);
     const targets = to === null ? [...this.members.values()].filter((m) => m !== from) : [this.members.get(to)].filter(Boolean);
     for (const target of targets as MemoryPath[]) {
       this.stats.sent++;
@@ -201,6 +203,13 @@ export class MemoryNetwork {
     const path = new MemoryPath(name, self, m);
     m.members.set(self, path);
     return path;
+  }
+
+  /** See every frame sent on a medium (an eavesdropper on a public relay). */
+  observe(name: string, fn: (frame: Uint8Array, from: PeerId, to: PeerId | null) => void): () => void {
+    const m = this.get(name);
+    m.observers.add(fn);
+    return () => m.observers.delete(fn);
   }
 
   /** Whole medium down / up (paths emit down/up). */

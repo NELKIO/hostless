@@ -138,6 +138,12 @@ export class Link {
   private rttvar = 0;
   private directSuspectAt = 0;
   private staleNoticeAt = 0;
+  /** replay protection for liveness: what counts as news from the peer */
+  private peerAckMax = 0;
+  private peerPingT0 = new Map<string, number>();
+  private pongT0 = new Map<string, number>();
+  private unrelOut = 0;
+  private unrelIn = 0;
   /** congestion window (segments in flight), AIMD: halved... down to 2 on a timeout, grows with acks */
   private cwnd: number;
   private ssthresh: number;
@@ -251,8 +257,8 @@ export class Link {
       return false;
     }
     if (bytes.length > this.o.maxMessageBytes) return false;
-    if (!reliable && bytes.length <= this.o.segmentBytes + DATA_SEG_HEADER - SEG_HEADER) {
-      const seg = encodeSegment({ t: SegType.Unreliable, fs: this.mySid, ts: this.peerSid, payload: bytes });
+    if (!reliable && bytes.length <= this.o.segmentBytes + DATA_SEG_HEADER - SEG_HEADER - 4) {
+      const seg = encodeSegment({ t: SegType.Unreliable, fs: this.mySid, ts: this.peerSid, n: ++this.unrelOut, payload: bytes });
       let ok = false;
       for (const path of this.best()) ok = this.io.send(path, seg) || ok;
       return ok;
@@ -386,10 +392,56 @@ export class Link {
       }
       return;
     }
-    const quietFor = now - (this.lastRx.get(path) ?? now);
-    this.lastRx.set(path, now);
-    this.lastHeard = now;
-    if (quietFor > 1000 && this.unacked.size) this.kick(path, now);
+    // Only news counts as a sign of life: a frame replayed from a relay (anyone can copy one)
+    // must not keep a vanished peer "connected", nor trigger replies.
+    let fresh = false;
+    const budget = this.o.segmentBytes + 64;
+    switch (seg.t) {
+      case SegType.Data:
+        if (seg.payload.length > budget) return;
+        fresh = seg.seq >= this.rxNext && !this.rxBuf.has(seg.seq) && seg.seq <= this.rxNext + this.o.maxQueued;
+        if (seg.ack > this.peerAckMax) {
+          this.peerAckMax = seg.ack;
+          fresh = true;
+        }
+        break;
+      case SegType.Ack:
+        if (seg.ack > this.peerAckMax) {
+          this.peerAckMax = seg.ack;
+          fresh = true;
+        }
+        if (seg.missing.length && seg.ack >= this.peerAckMax) fresh = true;
+        break;
+      case SegType.Ping:
+        if (seg.t0 > (this.peerPingT0.get(path) ?? 0)) {
+          this.peerPingT0.set(path, seg.t0);
+          fresh = true;
+        }
+        break;
+      case SegType.Pong:
+        // answers one of our own recent pings
+        if (seg.t0 > (this.pongT0.get(path) ?? 0) && seg.t0 <= now && now - seg.t0 < 60_000) {
+          this.pongT0.set(path, seg.t0);
+          fresh = true;
+        }
+        break;
+      case SegType.Unreliable:
+        if (seg.payload.length > budget + DATA_SEG_HEADER) return;
+        if (seg.n > this.unrelIn) {
+          this.unrelIn = seg.n;
+          fresh = true;
+        }
+        break;
+      case SegType.Bye:
+        fresh = true;
+        break;
+    }
+    if (fresh) {
+      const quietFor = now - (this.lastRx.get(path) ?? now);
+      this.lastRx.set(path, now);
+      this.lastHeard = now;
+      if (quietFor > 1000 && this.unacked.size) this.kick(path, now);
+    }
     switch (seg.t) {
       case SegType.Data:
         this.onAck(seg.ack, now);
@@ -397,19 +449,20 @@ export class Link {
         break;
       case SegType.Ack:
         this.onAck(seg.ack, now);
-        if (seg.missing.length) this.fastRetransmit(seg.missing, now);
+        if (fresh && seg.missing.length) this.fastRetransmit(seg.missing, now);
         break;
       case SegType.Ping:
-        this.ctl(path, { t: SegType.Pong, fs: this.mySid, ts: this.peerSid, t0: seg.t0, path: seg.path });
+        if (fresh) this.ctl(path, { t: SegType.Pong, fs: this.mySid, ts: this.peerSid, t0: seg.t0, path: seg.path });
         break;
       case SegType.Pong: {
+        if (!fresh) break;
         const r = Math.max(0, now - seg.t0);
         const old = this.rtts.get(path);
         this.rtts.set(path, old === undefined ? r : Math.round(old * 0.6 + r * 0.4));
         break;
       }
       case SegType.Unreliable:
-        this.deliverBytes(seg.payload, false);
+        if (fresh) this.deliverBytes(seg.payload, false);
         break;
       case SegType.Bye:
         this.io.bye();
@@ -602,6 +655,11 @@ export class Link {
     this.srtt = null;
     this.rttvar = 0;
     this.directSuspectAt = 0;
+    this.peerAckMax = 0;
+    this.peerPingT0.clear();
+    this.pongT0.clear();
+    this.unrelOut = 0;
+    this.unrelIn = 0;
     this.cwnd = Math.min(8, this.o.windowRelay);
     this.ssthresh = this.o.windowDirect;
     this.lastHeard = this.clock.now();

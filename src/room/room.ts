@@ -133,6 +133,8 @@ export class Room {
   private refused = new Map<PeerId, number>();
   private incompatibleSeen = new Map<PeerId, number>();
   private unknownNoticeAt = new Map<PeerId, number>();
+  /** sessions that said goodbye or timed out: their late (or replayed) hellos must not revive them */
+  private departed = new Map<PeerId, { sid: string; at: number; bye: boolean; until: number }>();
   private timer: unknown;
   private offs: Array<() => void> = [];
   private everUp = false;
@@ -374,7 +376,10 @@ export class Room {
     const last = p ? p.lastReplyAt : (this.unknownNoticeAt.get(id) ?? 0);
     if (now - last < 500) return;
     if (p) p.lastReplyAt = now;
-    else this.unknownNoticeAt.set(id, now);
+    else {
+      this.unknownNoticeAt.set(id, now);
+      capMap(this.unknownNoticeAt, 256);
+    }
     this.helloOn(path, id);
   }
 
@@ -404,6 +409,7 @@ export class Room {
     if (h.app.id !== this.app.id || h.app.protocol !== this.app.protocol || h.reject === 'protocol') {
       if (now - (this.incompatibleSeen.get(h.from) ?? 0) > 10_000) {
         this.incompatibleSeen.set(h.from, now);
+        capMap(this.incompatibleSeen, 256);
         this.events.emit('incompatible', { peer: h.from, theirs: h.app, ours: this.app });
         if (!h.reject) this.helloOn(path, h.from, { reject: 'protocol' });
       }
@@ -415,9 +421,13 @@ export class Room {
       return;
     }
     if (!p) {
+      const gone = this.departed.get(h.from);
+      // after a goodbye that session is over; after a timeout only a genuinely newer hello revives it
+      if (gone && gone.sid === h.sid && now < gone.until && (gone.bye || h.at <= gone.at)) return;
       if (this.peers.size + 1 >= this.o.maxPeers) {
         if (now - (this.refused.get(h.from) ?? 0) > 2000) {
           this.refused.set(h.from, now);
+          capMap(this.refused, 256);
           this.helloOn(path, h.from, { reject: 'full' });
         }
         return;
@@ -448,7 +458,8 @@ export class Room {
       this.replyTo(p, p.id, path);
       return;
     }
-    if (h.at < p.lastHelloAt) return;
+    // an exact replay of the last hello is no sign of life
+    if (h.at <= p.lastHelloAt) return;
     p.lastHelloAt = h.at;
     this.applyHints(p, h);
     this.markHeard(p);
@@ -511,15 +522,13 @@ export class Room {
   private onData(path: Path, frame: Uint8Array, via: unknown): void {
     const head = dataHeader(frame);
     if (!head || head.to !== this.peerId) return;
+    // only linked peers: an unknown sender costs no key agreement (it gets our periodic hello
+    // like everyone, and its own hello introduces it)
+    const p = this.peers.get(head.from);
+    if (!p) return;
     const segment = openData(this.keys, head.from, frame);
     if (!segment) return;
     path.bind(head.from, via);
-    const p = this.peers.get(head.from);
-    if (!p) {
-      // a peer that knows us while we do not know it (we reloaded): introduce ourselves
-      this.replyTo(null, head.from, path);
-      return;
-    }
     if (!p.reachable.has(path.name)) this.refreshPeerReach(p);
     // segment layout: type(1) | fromSid(8) | toSid(8)
     const fs = segmentSid(segment, 1);
@@ -547,6 +556,8 @@ export class Room {
   private drop(p: Peer, reason: LeaveReason): void {
     if (this.peers.get(p.id) !== p) return;
     this.peers.delete(p.id);
+    this.departed.set(p.id, { sid: p.sid, at: p.lastHelloAt, bye: reason === 'bye', until: this.clock.now() + 2 * 120_000 });
+    capMap(this.departed, 256);
     p.link.stop();
     this.events.emit('peer-leave', this.info(p), reason);
   }
@@ -589,6 +600,10 @@ export class Room {
       joinedAt: p.joinedAt,
     };
   }
+}
+
+function capMap<K, V>(map: Map<K, V>, limit: number): void {
+  while (map.size > limit) map.delete(map.keys().next().value as K);
 }
 
 function segmentSid(segment: Uint8Array, at: number): string {

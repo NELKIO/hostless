@@ -208,3 +208,75 @@ describe('room', () => {
     expect(CODE).not.toBe('ZZZZZZZZZZ');
   });
 });
+
+describe('room hardening', () => {
+  it('a replayed DATA frame does not keep a crashed peer alive', async () => {
+    const w = world({ media: { relay: { latency: 50 } } });
+    const tap = w.net.attach('relay', Identity.generate().peerId);
+    const frames: Uint8Array[] = [];
+    const a = await w.join();
+    const b = await w.join();
+    w.net.observe('relay', (f, from) => f[0] === 2 && from === a.peerId && frames.push(f));
+    await w.run(5000);
+    const fromA = frames;
+    expect(fromA.length).toBeGreaterThan(0);
+    crash(a);
+    const events: string[] = [];
+    b.on('peer-away', () => events.push('away'));
+    b.on('peer-leave', (_p, r) => events.push(`leave:${r}`));
+    for (let t = 0; t < 70; t++) {
+      for (const f of fromA.slice(-5)) tap.send(b.peerId, f);
+      await w.run(1000);
+    }
+    expect(events).toEqual(['away', 'leave:timeout']);
+  });
+
+  it('a hello arriving after the goodbye does not bring the peer back', async () => {
+    const w = world({ media: { relay: { latency: 50 } } });
+    const tap = w.net.attach('relay', Identity.generate().peerId);
+    const hellos: Uint8Array[] = [];
+    tap.events.on('frame', (f) => f[0] === 1 && hellos.push(f));
+    const a = await w.join();
+    const b = await w.join();
+    await w.run(3000);
+    const joins: string[] = [];
+    a.on('peer-join', (p) => joins.push(p.id));
+    await Promise.all([b.leave(), w.run(500)]);
+    expect(a.getPeers()).toHaveLength(0);
+    for (const f of hellos) tap.send(a.peerId, f);
+    await w.run(1000);
+    expect(joins).toEqual([]);
+  });
+
+  it('a peer that timed out comes back with a new hello', async () => {
+    const w = world();
+    const a = await w.join({ leaveMs: 20_000 });
+    const b = await w.join();
+    await w.run(3000);
+    const events: string[] = [];
+    a.on('peer-leave', () => events.push('leave'));
+    a.on('peer-join', () => events.push('join'));
+    w.net.freeze('direct', b.peerId);
+    w.net.freeze('relay', b.peerId);
+    await w.run(25_000);
+    w.net.freeze('direct', b.peerId, false);
+    w.net.freeze('relay', b.peerId, false);
+    await w.run(25_000);
+    expect(events).toEqual(['leave', 'join']);
+  });
+
+  it('frames from unknown senders are ignored without key agreement', async () => {
+    const w = world({ media: { relay: { latency: 10 } } });
+    const a = await w.join();
+    await w.run(1000);
+    const { encodeData, PairKeys } = await import('../../src/room/frames.js');
+    const tap = w.net.attach('relay', Identity.generate().peerId);
+    const before = (a.identity as unknown as { pairCache: Map<string, unknown> }).pairCache.size;
+    for (let i = 0; i < 50; i++) {
+      const x = Identity.generate();
+      tap.send(a.peerId, encodeData(new PairKeys(x, a.secrets), x.peerId, a.peerId, new Uint8Array(30)));
+    }
+    await w.run(500);
+    expect((a.identity as unknown as { pairCache: Map<string, unknown> }).pairCache.size).toBe(before);
+  });
+});

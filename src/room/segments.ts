@@ -5,7 +5,7 @@
  *   ack    0x11 | fromSid | toSid | ack u32 | count u8 | missing u32 × count
  *   ping   0x12 | fromSid | toSid | t0 f64 | path u8
  *   pong   0x13 | fromSid | toSid | t0 f64 | path u8
- *   unrel  0x14 | fromSid | toSid | channel-free payload (one whole message)
+ *   unrel  0x14 | fromSid | toSid | counter u32 | payload (one whole message; older counters are dropped)
  *   bye    0x15 | fromSid | toSid
  *
  * Session ids are 8 random bytes per page; `toSid` all zero means "your session, whatever it is"
@@ -41,7 +41,7 @@ export type Segment =
   | { t: SegType.Data; fs: string; ts: string; seq: number; ack: number; flags: number; payload: Uint8Array }
   | { t: SegType.Ack; fs: string; ts: string; ack: number; missing: number[] }
   | { t: SegType.Ping | SegType.Pong; fs: string; ts: string; t0: number; path: number }
-  | { t: SegType.Unreliable; fs: string; ts: string; payload: Uint8Array }
+  | { t: SegType.Unreliable; fs: string; ts: string; n: number; payload: Uint8Array }
   | { t: SegType.Bye; fs: string; ts: string };
 
 function header(size: number, type: SegType, fs: string, ts: string): { out: Uint8Array; view: DataView } {
@@ -78,8 +78,9 @@ export function encodeSegment(seg: Segment): Uint8Array {
       return out;
     }
     case SegType.Unreliable: {
-      const { out } = header(SEG_HEADER + seg.payload.length, seg.t, seg.fs, seg.ts);
-      out.set(seg.payload, SEG_HEADER);
+      const { out, view } = header(SEG_HEADER + 4 + seg.payload.length, seg.t, seg.fs, seg.ts);
+      view.setUint32(17, seg.n);
+      out.set(seg.payload, SEG_HEADER + 4);
       return out;
     }
     case SegType.Bye:
@@ -109,7 +110,8 @@ export function decodeSegment(bytes: Uint8Array): Segment | null {
       if (bytes.length !== SEG_HEADER + 9) return null;
       return { t: bytes[0] as SegType.Ping | SegType.Pong, fs, ts, t0: view.getFloat64(17), path: bytes[25] };
     case SegType.Unreliable:
-      return { t: SegType.Unreliable, fs, ts, payload: bytes.subarray(SEG_HEADER) };
+      if (bytes.length < SEG_HEADER + 4) return null;
+      return { t: SegType.Unreliable, fs, ts, n: view.getUint32(17), payload: bytes.subarray(SEG_HEADER + 4) };
     case SegType.Bye:
       return bytes.length === SEG_HEADER ? { t: SegType.Bye, fs, ts } : null;
     default:

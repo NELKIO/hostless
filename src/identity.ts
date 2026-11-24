@@ -54,6 +54,7 @@ export class Identity {
     if (!shared) {
       shared = ecdhX(this.secret, peer);
       this.pairCache.set(peer, shared);
+      if (this.pairCache.size > 256) this.pairCache.delete(this.pairCache.keys().next().value as PeerId);
     }
     return shared;
   }

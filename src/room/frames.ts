@@ -123,6 +123,7 @@ export class PairKeys {
       const [a, b] = [this.identity.peerId, peer].sort();
       key = hkdf(this.identity.sharedSecret(peer), this.secrets.pairSalt, `hostless/1/pair/${a}/${b}`, 32);
       this.keys.set(peer, key);
+      if (this.keys.size > 256) this.keys.delete(this.keys.keys().next().value as PeerId);
     }
     return key;
   }

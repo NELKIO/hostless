@@ -101,7 +101,7 @@ describe('segments', () => {
     fc.record({ t: fc.constant(SegType.Data as const), fs: sid, ts: sid, seq: u32, ack: u32, flags: fc.integer({ min: 0, max: 7 }), payload: fc.uint8Array({ maxLength: 300 }) }),
     fc.record({ t: fc.constant(SegType.Ack as const), fs: sid, ts: sid, ack: u32, missing: fc.array(u32, { maxLength: 32 }) }),
     fc.record({ t: fc.constantFrom(SegType.Ping as const, SegType.Pong as const), fs: sid, ts: sid, t0: fc.integer({ min: 0, max: 2 ** 50 }), path: fc.integer({ min: 0, max: 5 }) }),
-    fc.record({ t: fc.constant(SegType.Unreliable as const), fs: sid, ts: sid, payload: fc.uint8Array({ maxLength: 300 }) }),
+    fc.record({ t: fc.constant(SegType.Unreliable as const), fs: sid, ts: sid, n: u32, payload: fc.uint8Array({ maxLength: 300 }) }),
     fc.record({ t: fc.constant(SegType.Bye as const), fs: sid, ts: sid }),
   );
   it('round-trip', () => {
