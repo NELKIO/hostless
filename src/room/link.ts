@@ -138,6 +138,10 @@ export class Link {
   private rttvar = 0;
   private directSuspectAt = 0;
   private staleNoticeAt = 0;
+  /** congestion window (segments in flight), AIMD: halved... down to 2 on a timeout, grows with acks */
+  private cwnd: number;
+  private ssthresh: number;
+  private lastCut = 0;
   stopped = false;
   /** last time anything authenticated arrived from the peer */
   lastHeard: number;
@@ -153,6 +157,8 @@ export class Link {
     this.o = { ...DEFAULTS, ...Object.fromEntries(Object.entries(opts).filter(([, v]) => v !== undefined)) } as typeof this.o;
     this.label = opts.label ?? peerSid;
     this.lastHeard = clock.now();
+    this.cwnd = Math.min(8, this.o.windowRelay);
+    this.ssthresh = this.o.windowDirect;
   }
 
   // ---------------------------------------------------------------- path choice
@@ -276,8 +282,36 @@ export class Link {
     return true;
   }
 
+  /** segments allowed in flight now: the congestion window, capped by the route's maximum */
   private window(): number {
-    return this.directHealthy(this.clock.now(), this.io.paths()) ? this.o.windowDirect : this.o.windowRelay;
+    const cap = this.directHealthy(this.clock.now(), this.io.paths()) ? this.o.windowDirect : this.o.windowRelay;
+    return Math.max(1, Math.min(cap, Math.floor(this.cwnd)));
+  }
+
+  /** a retransmission timeout: the path(s) are congested or lossy, send less */
+  private congestion(now: number): void {
+    // one cut per round trip at most
+    if (now - this.lastCut < this.rto()) return;
+    this.lastCut = now;
+    const inFlight = this.inFlight();
+    this.ssthresh = Math.max(2, Math.floor(Math.max(inFlight, this.cwnd) / 2));
+    this.cwnd = 2;
+    netlog('link-congestion', { peer: this.label, ssthresh: this.ssthresh });
+  }
+
+  private grow(acked: number): void {
+    const cap = Math.max(this.o.windowDirect, this.o.windowRelay);
+    if (this.cwnd < this.ssthresh) this.cwnd = Math.min(cap, this.cwnd + acked);
+    else this.cwnd = Math.min(cap, this.cwnd + acked / this.cwnd);
+  }
+
+  private inFlight(): number {
+    let n = 0;
+    for (const p of this.unacked.values()) {
+      if (!p.first) break;
+      n++;
+    }
+    return n;
   }
 
   /** send not-yet-sent segments that fit in the window */
@@ -459,8 +493,10 @@ export class Link {
   /** re-send on `path`, now, what waits longer than one RTO */
   private kick(path: string, now: number): void {
     const rto = this.rto();
+    let budget = this.window();
     for (const [seq, p] of this.unacked) {
-      if (!p.first || now - p.last < rto) continue;
+      if (!p.first || budget-- <= 0) break;
+      if (now - p.last < rto) continue;
       p.tries++;
       p.last = now;
       this.stats.retransmits++;
@@ -471,7 +507,9 @@ export class Link {
   private fastRetransmit(missing: number[], now: number): void {
     const gap = Math.max(40, (this.srtt ?? 200) * 0.5);
     const open = this.io.paths().map((p) => p.name);
+    let budget = this.window();
     for (const seq of missing) {
+      if (budget-- <= 0) break;
       const p = this.unacked.get(seq);
       if (!p || !p.first || now - p.last < gap) continue;
       p.tries++;
@@ -483,6 +521,7 @@ export class Link {
   }
 
   private onAck(ack: number, now: number): void {
+    let acked = 0;
     for (const [seq, p] of this.unacked) {
       if (seq > ack) break;
       if (!p.first) break; // never sent: an ack beyond what we sent is bogus
@@ -497,7 +536,9 @@ export class Link {
         }
       }
       this.unacked.delete(seq);
+      acked++;
     }
+    if (acked) this.grow(acked);
   }
 
   private rto(): number {
@@ -516,19 +557,27 @@ export class Link {
     const names = open.map((p) => p.name);
     if (this.unacked.size) {
       const rto = this.rto();
+      const due: Array<[number, Pending]> = [];
       for (const [seq, p] of this.unacked) {
         if (!p.first) break;
-        if (now - p.last < rto * 2 ** Math.min(p.tries, 3)) continue;
-        if (p.tries === 0 && p.paths.length === 1 && open.find((o) => o.name === p.paths[0])?.direct && open.length > 1) {
-          // sent on the direct path alone and not acknowledged: avoid it until it speaks again
-          this.directSuspectAt = now;
-          netlog('direct-suspect', { peer: this.label, seq });
+        if (now - p.last >= rto * 2 ** Math.min(p.tries, 3)) due.push([seq, p]);
+      }
+      if (due.length) {
+        // a timeout: shrink the window, and re-send only the oldest segments that fit in it. A burst
+        // of everything unacknowledged would itself overload a relay socket that carries a few KB.
+        this.congestion(now);
+        for (const [seq, p] of due.slice(0, this.window())) {
+          if (p.tries === 0 && p.paths.length === 1 && open.find((o) => o.name === p.paths[0])?.direct && open.length > 1) {
+            // sent on the direct path alone and not acknowledged: avoid it until it speaks again
+            this.directSuspectAt = now;
+            netlog('direct-suspect', { peer: this.label, seq });
+          }
+          p.tries++;
+          p.last = now;
+          p.paths = names;
+          this.stats.retransmits++;
+          for (const path of names) this.transmit(path, seq, p);
         }
-        p.tries++;
-        p.last = now;
-        p.paths = names;
-        this.stats.retransmits++;
-        for (const path of names) this.transmit(path, seq, p);
       }
     }
     this.pump();
@@ -553,6 +602,8 @@ export class Link {
     this.srtt = null;
     this.rttvar = 0;
     this.directSuspectAt = 0;
+    this.cwnd = Math.min(8, this.o.windowRelay);
+    this.ssthresh = this.o.windowDirect;
     this.lastHeard = this.clock.now();
   }
 

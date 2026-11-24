@@ -198,6 +198,26 @@ describe('link', () => {
     expect(h.got.b).toEqual(['x'.repeat(200 * 40)]);
   });
 
+  it('never retransmits everything at once after a timeout (congestion window)', () => {
+    const h = harness([{ name: 'r', latency: 200 }], 5, { windowRelay: 24 });
+    h.a.pathUp('r');
+    h.b.pathUp('r');
+    h.clock.advance(500);
+    h.paths[0].silent = true;
+    for (let i = 0; i < 100; i++) h.a.send(i);
+    h.clock.advance(1);
+    let last = h.paths[0].dataSegments;
+    let worst = 0;
+    for (let t = 0; t < 400; t++) {
+      h.clock.advance(100);
+      worst = Math.max(worst, h.paths[0].dataSegments - last);
+      last = h.paths[0].dataSegments;
+      if (t === 100) h.paths[0].silent = false;
+    }
+    expect(worst).toBeLessThanOrEqual(24);
+    expect(h.got.b).toEqual(Array.from({ length: 100 }, (_, i) => i));
+  });
+
   it('sends unreliable messages once on the best path', () => {
     const h = harness([{ name: 'd', direct: true, loss: 1 }]);
     h.a.pathUp('d');
