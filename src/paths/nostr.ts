@@ -44,12 +44,16 @@ export interface NostrPathOptions {
   okTimeoutMs?: number;
   /** no relay up this long after the start → error event */
   connectTimeoutMs?: number;
+  /** relays used at once (default 8); the rest of the list stands by and replaces relays that fail */
+  maxRelays?: number;
   ws?: WsFactory;
 }
 
 interface Conn {
   url: string;
   index: number;
+  /** connecting / in use (a standby relay is not started until needed) */
+  started: boolean;
   ws: WsLike | null;
   /** replacement socket being opened (connection hopping) */
   next: WsLike | null;
@@ -118,6 +122,7 @@ export class NostrPath implements Path {
     this.conns = relays.map((url, index) => ({
       url,
       index,
+      started: false,
       ws: null,
       next: null,
       up: false,
@@ -141,7 +146,10 @@ export class NostrPath implements Path {
       freezes: 0,
       sent: 0,
     }));
-    for (const conn of this.conns) this.connect(conn);
+    const active = Math.max(1, o.maxRelays ?? 8);
+    for (const conn of this.conns.slice(0, active)) this.startConn(conn);
+    // standby relays join when fewer than two are up after a while
+    this.clock.setTimeout(() => this.promote(2), 6000);
     this.failTimer = this.clock.setTimeout(() => {
       this.failTimer = null;
       if (!this.closed && !this.conns.some((c) => c.everUp)) this.events.emit('error', 'unreachable', 'no Nostr relay is reachable');
@@ -178,11 +186,31 @@ export class NostrPath implements Path {
 
   status(): Record<string, unknown> {
     return {
-      relays: this.conns.map((c) => ({ url: c.url, up: c.up, dead: c.deadReason, freezes: c.freezes, sent: c.sent })),
+      relays: this.conns.filter((c) => c.started).map((c) => ({ url: c.url, up: c.up, dead: c.deadReason, freezes: c.freezes, sent: c.sent })),
     };
   }
 
   // ---------------------------------------------------------------- sockets
+
+  private startConn(conn: Conn): void {
+    if (conn.started) return;
+    conn.started = true;
+    this.connect(conn);
+  }
+
+  /** start standby relays until `want` relays are up or connecting healthily */
+  private promote(want: number): void {
+    if (this.closed) return;
+    const healthy = this.conns.filter((c) => c.started && !c.dead && (c.up || c.fails < 2)).length;
+    let missing = want - this.conns.filter((c) => c.up && !c.dead).length;
+    if (healthy >= this.conns.filter((c) => c.started).length && missing <= 0) return;
+    for (const c of this.conns) {
+      if (missing <= 0) break;
+      if (c.started) continue;
+      this.startConn(c);
+      missing--;
+    }
+  }
 
   private connect(conn: Conn, hop = false): void {
     if (this.closed || conn.dead) return;
@@ -338,6 +366,10 @@ export class NostrPath implements Path {
 
   private retry(conn: Conn): void {
     if (this.closed || conn.dead) return;
+    if (conn.fails === 2) {
+      const standby = this.conns.find((c) => !c.started);
+      if (standby) this.startConn(standby);
+    }
     if (conn.timer) this.clock.clearTimeout(conn.timer);
     conn.timer = this.clock.setTimeout(() => {
       conn.timer = null;
@@ -401,6 +433,8 @@ export class NostrPath implements Path {
     conn.ws = conn.next = null;
     conn.unconfirmed.clear();
     this.events.emit('error', 'relay-dropped', `${conn.url}: ${reason}`);
+    const standby = this.conns.find((c) => !c.started);
+    if (standby) this.startConn(standby);
     this.changed();
   }
 

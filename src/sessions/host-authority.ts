@@ -93,7 +93,7 @@ export class HostAuthority<S, A = unknown> {
   readonly room: Room;
   readonly isHost: boolean;
   private engine: AuthorityEngine<S, A>;
-  private seatStore: Seat<HostJournal<S>> | null;
+  private journalSeat: Seat<HostJournal<S>> | null;
   private channelName: string;
   private clock: Clock;
   private maxSeats: number;
@@ -122,15 +122,15 @@ export class HostAuthority<S, A = unknown> {
     this.room = opts.room;
     this.engine = opts.engine;
     this.isHost = opts.role === 'host';
-    this.seatStore = opts.seat ?? null;
+    this.journalSeat = opts.seat ?? null;
     this.channelName = opts.channel ?? 'ha';
     this.clock = opts.clock ?? realClock;
     this.maxSeats = opts.maxSeats ?? 16;
     this.heartbeatMs = opts.heartbeatMs ?? 3000;
     this.meta = opts.meta ?? {};
     this.hostPeer = opts.host ?? null;
-    if (this.seatStore && this.seatStore.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
-    const j = this.seatStore?.journal;
+    if (this.journalSeat && this.journalSeat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
+    const j = this.journalSeat?.journal;
     if (j && j.v === 1 && j.code === this.room.code && j.role === opts.role) {
       this.seq = j.seq;
       this._state = j.state;
@@ -227,7 +227,7 @@ export class HostAuthority<S, A = unknown> {
   }
 
   private persist(): void {
-    this.seatStore?.save({ v: 1, code: this.room.code, role: this.isHost ? 'host' : 'guest', seq: this.seq, state: this._state, seats: this.isHost ? this.seats : this.mySeat === null ? {} : { [this.room.peerId]: this.mySeat } });
+    this.journalSeat?.save({ v: 1, code: this.room.code, role: this.isHost ? 'host' : 'guest', seq: this.seq, state: this._state, seats: this.isHost ? this.seats : this.mySeat === null ? {} : { [this.room.peerId]: this.mySeat } });
   }
 
   private heartbeat(peer?: PeerId): void {

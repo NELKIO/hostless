@@ -1,0 +1,222 @@
+{
+  "at": "2026-11-24T02:01:09.150Z",
+  "relays": [
+    {
+      "url": "wss://relay.primal.net",
+      "connectMs": 1407,
+      "ephemeral": true,
+      "ephemeralMs": 150,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://nos.lol",
+      "connectMs": 336,
+      "ephemeral": true,
+      "ephemeralMs": 76,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.damus.io",
+      "connectMs": null,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": null,
+      "error": "closed 1006"
+    },
+    {
+      "url": "wss://nostr.mom",
+      "connectMs": 801,
+      "ephemeral": true,
+      "ephemeralMs": 79,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.nostr.net",
+      "connectMs": 1259,
+      "ephemeral": true,
+      "ephemeralMs": 206,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://nostr-01.yakihonne.com",
+      "connectMs": 1250,
+      "ephemeral": true,
+      "ephemeralMs": 329,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.ditto.pub",
+      "connectMs": 1738,
+      "ephemeral": true,
+      "ephemeralMs": 250,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://bucket.coracle.social",
+      "connectMs": 1980,
+      "ephemeral": true,
+      "ephemeralMs": 276,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.snort.social",
+      "connectMs": 1369,
+      "ephemeral": true,
+      "ephemeralMs": 101,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.wavlake.com",
+      "connectMs": 1266,
+      "ephemeral": true,
+      "ephemeralMs": 292,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://fanfares.nostr1.com",
+      "connectMs": 1497,
+      "ephemeral": true,
+      "ephemeralMs": 196,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.mleku.dev",
+      "connectMs": 2041,
+      "ephemeral": true,
+      "ephemeralMs": 212,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://nostr.21crypto.ch",
+      "connectMs": 1338,
+      "ephemeral": true,
+      "ephemeralMs": 202,
+      "storage": true,
+      "storageNote": null,
+      "error": null
+    },
+    {
+      "url": "wss://relay.agora.social",
+      "connectMs": null,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": null,
+      "error": "closed 1006"
+    },
+    {
+      "url": "wss://offchain.pub",
+      "connectMs": 2044,
+      "ephemeral": true,
+      "ephemeralMs": 286,
+      "storage": false,
+      "storageNote": "refused: Policy violated and pubkey is not in our web of trust.",
+      "error": null
+    },
+    {
+      "url": "wss://nostr.oxtr.dev",
+      "connectMs": 1376,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": "no OK",
+      "error": "ephemeral refused: Write error: mdb_txn_commit: No space left on device"
+    },
+    {
+      "url": "wss://relay.nostr.band",
+      "connectMs": null,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": null,
+      "error": "closed 1006"
+    },
+    {
+      "url": "wss://nostr.wine",
+      "connectMs": 1923,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": "refused: restricted: sign up at https://nostr.wine to write events to this relay",
+      "error": "ephemeral refused: restricted: sign up at https://nostr.wine to write events to this relay"
+    },
+    {
+      "url": "wss://purplepag.es",
+      "connectMs": 1708,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": "refused: blocked: kind 30078 is not allowed",
+      "error": "ephemeral refused: blocked: kind 25050 is not allowed"
+    },
+    {
+      "url": "wss://relay.0xchat.com",
+      "connectMs": null,
+      "ephemeral": false,
+      "ephemeralMs": null,
+      "storage": false,
+      "storageNote": null,
+      "error": "closed 1006"
+    }
+  ],
+  "brokers": [
+    {
+      "url": "wss://broker.emqx.io:8084/mqtt",
+      "ok": true,
+      "connectMs": 1595,
+      "echoMs": 93,
+      "error": null
+    },
+    {
+      "url": "wss://broker.hivemq.com:8884/mqtt",
+      "ok": true,
+      "connectMs": 502,
+      "echoMs": 75,
+      "error": null
+    },
+    {
+      "url": "wss://test.mosquitto.org:8081/mqtt",
+      "ok": true,
+      "connectMs": 505,
+      "echoMs": 79,
+      "error": null
+    },
+    {
+      "url": "wss://public.mqtthq.com:8084/mqtt",
+      "ok": false,
+      "connectMs": null,
+      "echoMs": null,
+      "error": "closed"
+    },
+    {
+      "url": "wss://mqtt.eclipseprojects.io:443/mqtt",
+      "ok": false,
+      "connectMs": null,
+      "echoMs": null,
+      "error": "connect timeout"
+    }
+  ]
+}

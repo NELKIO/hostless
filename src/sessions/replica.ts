@@ -80,7 +80,7 @@ export class Replica<T = unknown> {
   readonly room: Room;
   readonly doc: string;
   private channelName: string;
-  private seat: Seat<ReplicaJournal<T>> | null;
+  private journalSeat: Seat<ReplicaJournal<T>> | null;
   private validate: (op: unknown, author: PeerId) => boolean;
   private clock: Clock;
   private o: { syncMs: number; batchMs: number; maxOps: number };
@@ -102,12 +102,12 @@ export class Replica<T = unknown> {
     this.room = opts.room;
     this.doc = opts.doc ?? 'main';
     this.channelName = opts.channel ?? 'rp';
-    this.seat = opts.seat ?? null;
+    this.journalSeat = opts.seat ?? null;
     this.validate = opts.validate ?? (() => true);
     this.clock = opts.clock ?? realClock;
     this.o = { syncMs: opts.syncMs ?? 4000, batchMs: opts.batchMs ?? 30, maxOps: opts.maxOps ?? 100_000 };
-    if (this.seat && this.seat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
-    const j = this.seat?.journal;
+    if (this.journalSeat && this.journalSeat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
+    const j = this.journalSeat?.journal;
     if (j && j.v === 1 && j.code === this.room.code && j.doc === this.doc && Array.isArray(j.ops)) this.ingest(j.ops, false);
     const ch = this.room.channel<Msg<T>>(this.channelName);
     this.offs.push(
@@ -174,7 +174,7 @@ export class Replica<T = unknown> {
     const l = this.lamport + 1;
     const at = this.clock.now();
     const stamped: Op<T> = { a: me, n, l, at, op, sig: this.room.identity.signValue({ doc: this.doc, a: me, n, l, at, op }) };
-    if (this.seat && !this.seat.commit(this.journal([...this.log, stamped]))) {
+    if (this.journalSeat && !this.journalSeat.commit(this.journal([...this.log, stamped]))) {
       this.events.emit('storage-error');
       return null;
     }
@@ -201,10 +201,10 @@ export class Replica<T = unknown> {
   }
 
   private scheduleSave(): void {
-    if (!this.seat || this.saveTimer) return;
+    if (!this.journalSeat || this.saveTimer) return;
     this.saveTimer = this.clock.setTimeout(() => {
       this.saveTimer = null;
-      this.seat?.save(this.journal());
+      this.journalSeat?.save(this.journal());
     }, 300);
   }
 
@@ -334,7 +334,7 @@ export class Replica<T = unknown> {
     if (this.saveTimer) {
       this.clock.clearTimeout(this.saveTimer);
       this.saveTimer = null;
-      this.seat?.save(this.journal());
+      this.journalSeat?.save(this.journal());
     }
     this.clock.clearInterval(this.timer);
     for (const off of this.offs) off();

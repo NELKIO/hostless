@@ -1,0 +1,201 @@
+/** UI strings in English and Russian. `{name}` placeholders are filled by `t()`. */
+export type Lang = 'en' | 'ru';
+
+const en = {
+  // lobby
+  modes: 'Room',
+  newRoom: 'New room',
+  create: 'Create room',
+  join: 'Join',
+  joinRoom: 'Join room',
+  codeLabel: 'Room code',
+  inputLabel: 'Code or link',
+  inputPlaceholder: 'ABCDE-FGHJK',
+  emptyCode: 'Enter a room code or link.',
+  badCode: 'That doesn’t look like a room code.',
+  inviteHint: 'Send this link to the other players.',
+  copyLink: 'Copy link',
+  copied: 'Link copied.',
+  copyFailed: 'Couldn’t copy. Select the link and copy it.',
+  share: 'Share',
+  shareText: 'Join my room',
+  linkField: 'Invite link',
+  players: 'Players',
+  playersCount: 'Players: {n}',
+  waiting: 'Waiting for players…',
+  peerConnected: 'connected',
+  peerAway: 'away',
+  // routes and room status
+  direct: 'direct',
+  relay: 'relay',
+  noRoute: 'no route',
+  ms: '{n} ms',
+  status_online: 'online',
+  status_connecting: 'connecting',
+  status_offline: 'offline',
+  status_closed: 'closed',
+  connection: 'Connection',
+  paths: 'Paths',
+  pathUp: 'up',
+  pathDown: 'down',
+  noPaths: 'no paths',
+  // sync
+  sync_off: 'Sync is off',
+  sync_syncing: 'Syncing…',
+  sync_ok: 'Synced',
+  sync_okAt: 'Synced at {time}',
+  sync_offline: 'Offline, will retry',
+  sync_unreadable: 'Can’t read synced data with this key',
+  sync_outdated: 'Synced data is from a newer version',
+  sync_error: 'Sync failed',
+  sync_paused: 'Sync paused',
+  syncIntro: 'Keep progress in sync across your devices. No account needed.',
+  linkDevices: 'Link devices',
+  enterKey: 'Enter key',
+  keyLabel: 'Sync key or link',
+  keyPlaceholder: 'ABCD-EFGH-…',
+  submitKey: 'Link',
+  cancel: 'Cancel',
+  emptyKey: 'Enter a sync key or link.',
+  badKey: 'That key isn’t valid.',
+  storageFail: 'Couldn’t save the key on this device.',
+  linkFailed: 'Couldn’t link this device.',
+  yourKey: 'Sync key',
+  keyHint: 'Open this link on your other device.',
+  syncNow: 'Sync now',
+  unlink: 'Unlink',
+  unlinkConfirm: 'Unlink this device? Progress stays here.',
+  // netcheck
+  check: 'Check connection',
+  checking: 'Checking…',
+  endpoint: 'Endpoint',
+  result: 'Result',
+  connectMs: 'Connect',
+  echoMs: 'Echo',
+  error: 'Error',
+  ok: 'ok',
+  fail: 'fail',
+  webrtc: 'WebRTC',
+  available: 'available',
+  unavailable: 'unavailable',
+  nat: 'NAT type',
+  relaysReachable: 'Relays reachable',
+  directLinks: 'Direct links',
+  direct_likely: 'likely',
+  direct_unlikely: 'unlikely',
+  direct_unknown: 'unknown',
+  verdictOk: 'Multiplayer should work here.',
+  verdictBad: 'This network blocks multiplayer.',
+  checkFailed: 'Check failed: {error}',
+};
+
+export type StringKey = keyof typeof en;
+
+const ru: Record<StringKey, string> = {
+  modes: 'Комната',
+  newRoom: 'Новая комната',
+  create: 'Создать комнату',
+  join: 'Войти',
+  joinRoom: 'Войти в комнату',
+  codeLabel: 'Код комнаты',
+  inputLabel: 'Код или ссылка',
+  inputPlaceholder: 'ABCDE-FGHJK',
+  emptyCode: 'Введите код или ссылку.',
+  badCode: 'Это не похоже на код комнаты.',
+  inviteHint: 'Отправьте ссылку другим игрокам.',
+  copyLink: 'Скопировать ссылку',
+  copied: 'Ссылка скопирована.',
+  copyFailed: 'Не удалось скопировать. Выделите ссылку и скопируйте.',
+  share: 'Поделиться',
+  shareText: 'Заходи в мою комнату',
+  linkField: 'Ссылка-приглашение',
+  players: 'Игроки',
+  playersCount: 'Игроков: {n}',
+  waiting: 'Ждём игроков…',
+  peerConnected: 'в сети',
+  peerAway: 'отошёл',
+  direct: 'напрямую',
+  relay: 'через relay',
+  noRoute: 'нет связи',
+  ms: '{n} мс',
+  status_online: 'в сети',
+  status_connecting: 'подключение',
+  status_offline: 'нет сети',
+  status_closed: 'закрыто',
+  connection: 'Соединение',
+  paths: 'Каналы',
+  pathUp: 'работает',
+  pathDown: 'не работает',
+  noPaths: 'нет каналов',
+  sync_off: 'Синхронизация выключена',
+  sync_syncing: 'Синхронизация…',
+  sync_ok: 'Синхронизировано',
+  sync_okAt: 'Синхронизировано в {time}',
+  sync_offline: 'Нет сети, повторим позже',
+  sync_unreadable: 'Этим ключом данные не прочитать',
+  sync_outdated: 'Данные из более новой версии',
+  sync_error: 'Ошибка синхронизации',
+  sync_paused: 'Синхронизация на паузе',
+  syncIntro: 'Прогресс на всех ваших устройствах. Без аккаунта.',
+  linkDevices: 'Связать устройства',
+  enterKey: 'Ввести ключ',
+  keyLabel: 'Ключ или ссылка',
+  keyPlaceholder: 'ABCD-EFGH-…',
+  submitKey: 'Связать',
+  cancel: 'Отмена',
+  emptyKey: 'Введите ключ или ссылку.',
+  badKey: 'Неверный ключ.',
+  storageFail: 'Не удалось сохранить ключ на этом устройстве.',
+  linkFailed: 'Не удалось связать устройство.',
+  yourKey: 'Ключ синхронизации',
+  keyHint: 'Откройте эту ссылку на другом устройстве.',
+  syncNow: 'Синхронизировать',
+  unlink: 'Отвязать',
+  unlinkConfirm: 'Отвязать это устройство? Прогресс здесь сохранится.',
+  check: 'Проверить соединение',
+  checking: 'Проверяем…',
+  endpoint: 'Сервер',
+  result: 'Итог',
+  connectMs: 'Связь',
+  echoMs: 'Эхо',
+  error: 'Ошибка',
+  ok: 'ок',
+  fail: 'сбой',
+  webrtc: 'WebRTC',
+  available: 'есть',
+  unavailable: 'нет',
+  nat: 'Тип NAT',
+  relaysReachable: 'Доступно relay',
+  directLinks: 'Прямая связь',
+  direct_likely: 'вероятна',
+  direct_unlikely: 'маловероятна',
+  direct_unknown: 'неизвестно',
+  verdictOk: 'Мультиплеер должен работать.',
+  verdictBad: 'Эта сеть блокирует мультиплеер.',
+  checkFailed: 'Проверка не удалась: {error}',
+};
+
+export const STRINGS: Record<Lang, Record<StringKey, string>> = { en, ru };
+
+/** `ru` or `en`: the explicit attribute if valid, else the document language, else English. */
+export function resolveLang(attr?: string | null): Lang {
+  const pick = (value: unknown): Lang | null => {
+    const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (text.startsWith('ru')) return 'ru';
+    if (text.startsWith('en')) return 'en';
+    return null;
+  };
+  const explicit = pick(attr);
+  if (explicit) return explicit;
+  try {
+    return pick(globalThis.document?.documentElement?.lang) === 'ru' ? 'ru' : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
+export function translate(lang: Lang, key: StringKey, vars?: Record<string, string | number>): string {
+  const template = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+  if (!vars) return template;
+  return template.replace(/\{(\w+)\}/g, (all, name: string) => (name in vars ? String(vars[name]) : all));
+}

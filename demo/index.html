@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hostless demos</title>
+  <meta name="description" content="Serverless multiplayer for static sites: WebRTC when it works, public relays when it doesn't." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>hostless</h1>
+      <a href="https://github.com/NELKIO/hostless">GitHub</a>
+    </header>
+    <p>Multiplayer for static sites. No server: players meet with a room code, talk over WebRTC when it works and over public Nostr relays and MQTT brokers when it does not, and a closed tab never loses the match. Every demo below is a static page.</p>
+    <p class="muted">Open a demo, create a room, and open the link on another device (or in another browser).</p>
+    <div class="grid">
+      <a class="card" href="tictactoe.html"><h2>Tic-tac-toe</h2><p class="muted">TurnMatch: signed moves, resume after reload, result from the mailbox.</p></a>
+      <a class="card" href="canvas.html"><h2>Co-op canvas</h2><p class="muted">Replica: everyone paints at once, same picture everywhere.</p></a>
+      <a class="card" href="clicker.html"><h2>Synced clicker</h2><p class="muted">DeviceSync + PublicStats: progress across devices, totals of the world.</p></a>
+      <a class="card" href="netcheck.html"><h2>Connection check</h2><p class="muted">What this network can reach.</p></a>
+    </div>
+  </main>
+</body>
+</html>

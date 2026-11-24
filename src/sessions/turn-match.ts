@@ -160,7 +160,7 @@ export class TurnMatch<S, M = unknown, L = unknown> {
   readonly isHost: boolean;
   readonly seatCount: number;
   private engine: TurnEngine<S, M, L>;
-  private seat: Seat<TurnJournal> | null;
+  private journalSeat: Seat<TurnJournal> | null;
   private mailbox: Mailbox | null;
   private channelName: string;
   private clock: Clock;
@@ -189,13 +189,13 @@ export class TurnMatch<S, M = unknown, L = unknown> {
     this.engine = opts.engine;
     this.isHost = opts.role === 'host';
     this.seatCount = Math.max(2, opts.seats ?? 2);
-    this.seat = opts.seat ?? null;
+    this.journalSeat = opts.seat ?? null;
     this.mailbox = opts.mailbox ?? null;
     this.channelName = opts.channel ?? 'tm';
     this.clock = opts.clock ?? realClock;
     this.o = { silentMs: opts.silentMs ?? 12_000, reconnectMs: opts.reconnectMs ?? 25_000, headMs: opts.headMs ?? 4000 };
-    if (this.seat && this.seat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
-    if (this.seat?.journal) this.restore(this.seat.journal);
+    if (this.journalSeat && this.journalSeat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
+    if (this.journalSeat?.journal) this.restore(this.journalSeat.journal);
     const ch = this.room.channel<Msg>(this.channelName);
     this.offs.push(
       ch.on((m: RoomMessage<Msg>) => this.receive(m.peer, m.data)),
@@ -303,7 +303,7 @@ export class TurnMatch<S, M = unknown, L = unknown> {
     if (!next) return false;
     const index = m.history.length;
     const entry: Entry = { s: m.mySeat, m: move, sig: this.room.identity.signValue({ id: m.id, i: index, s: m.mySeat, m: move }) };
-    if (this.seat && !this.seat.commit(this.journal({ ...m, history: [...m.history, entry] }))) {
+    if (this.journalSeat && !this.journalSeat.commit(this.journal({ ...m, history: [...m.history, entry] }))) {
       this.events.emit('storage-error');
       this.emit();
       return false;
@@ -359,7 +359,7 @@ export class TurnMatch<S, M = unknown, L = unknown> {
   }
 
   private persist(extra: { settled?: boolean } = {}): void {
-    this.seat?.save(this.journal(), extra);
+    this.journalSeat?.save(this.journal(), extra);
   }
 
   private restore(j: TurnJournal): void {

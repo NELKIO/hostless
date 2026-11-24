@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Co-op canvas · hostless</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1><a href="./">hostless</a> · co-op canvas</h1>
+      <hostless-link id="link"></hostless-link>
+    </header>
+    <section class="card" id="lobby-card">
+      <p class="muted">Everyone paints at once (Replica): every stroke is a signed op, delivered causally, merged in the same total order on every screen.</p>
+      <hostless-lobby id="lobby"></hostless-lobby>
+    </section>
+    <section class="card" id="paint" hidden>
+      <div class="row" id="palette" role="toolbar" aria-label="colors"></div>
+      <canvas class="paint" id="canvas" width="32" height="32"></canvas>
+      <p class="muted" id="info" aria-live="polite"></p>
+    </section>
+  </main>
+  <script type="module" src="canvas.js"></script>
+</body>
+</html>

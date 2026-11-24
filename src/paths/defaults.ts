@@ -4,30 +4,37 @@
  * Override them per call for anything serious: public relays come and go.
  */
 
-/** Relays that forward anonymous ephemeral events (live path). */
+/**
+ * Relays that forward anonymous ephemeral events (live path). The first four carried long sessions
+ * from Russia without a VPN (influence-web, October 2026), where big Cloudflare-hosted relays freeze
+ * sockets after a few KB; all of them passed `npm run scan` on 2026-11-24.
+ */
 export const DEFAULT_NOSTR_RELAYS: readonly string[] = Object.freeze([
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.damus.io',
-  'wss://nostr.mom',
-  'wss://relay.nostr.net',
-  'wss://nostr-01.yakihonne.com',
-  'wss://relay.ditto.pub',
   'wss://relay.wavlake.com',
   'wss://fanfares.nostr1.com',
   'wss://relay.mleku.dev',
   'wss://nostr.21crypto.ch',
-]);
-
-/** Relays that keep replaceable app data (kind 30078) of up to ~60 KB (sync, mailbox, stats). */
-export const DEFAULT_STORAGE_RELAYS: readonly string[] = Object.freeze([
+  'wss://nos.lol',
   'wss://relay.primal.net',
+  'wss://nostr.mom',
+  'wss://relay.nostr.net',
   'wss://nostr-01.yakihonne.com',
   'wss://relay.ditto.pub',
-  'wss://relay.nostr.net',
-  'wss://nostr.mom',
   'wss://relay.snort.social',
+  'wss://bucket.coracle.social',
+  'wss://relay.damus.io',
+]);
+
+/** Relays that keep replaceable app data (kind 30078) of up to ~60 KB with NIP-40 (sync, mailbox, stats). */
+export const DEFAULT_STORAGE_RELAYS: readonly string[] = Object.freeze([
+  'wss://relay.primal.net',
   'wss://nos.lol',
+  'wss://nostr.mom',
+  'wss://relay.nostr.net',
+  'wss://nostr-01.yakihonne.com',
+  'wss://relay.ditto.pub',
+  'wss://relay.snort.social',
+  'wss://bucket.coracle.social',
   'wss://relay.damus.io',
 ]);
 
