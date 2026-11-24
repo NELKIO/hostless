@@ -1,8 +1,7 @@
 import { createReplica, parseRoomCode, type Hosted, type Op, type Replica } from '../src/index.js';
 import { defineHostlessElements } from '../src/ui/index.js';
-import { $, chrome, connectOptions, expose } from './common.js';
+import { $, connectOptions, expose } from './common.js';
 
-chrome();
 defineHostlessElements();
 
 const APP = { id: 'hostless-demo-canvas', protocol: 1 };
@@ -46,8 +45,7 @@ function draw() {
     ctx.fillRect(i % SIZE, Math.floor(i / SIZE), 1, 1);
   }
   const peers = replica.room.getPeers();
-  $('#strokes').textContent = `${replica.size} stroke${replica.size === 1 ? '' : 's'}`;
-  $('#painters').textContent = peers.length ? `${peers.length + 1} painters` : 'alone';
+  $('#info').textContent = `${replica.size} strokes · ${peers.length} other painter${peers.length === 1 ? '' : 's'}`;
   expose('__canvas', { size: replica.size, pixels: [...pixels.entries()].sort((a, b) => a[0] - b[0]), peers: peers.length });
 }
 
@@ -80,9 +78,8 @@ async function start(code: string) {
   $('#lobby-card').hidden = true;
   $('#paint').hidden = false;
   replica = await createReplica<Dot>({ app: APP, code, validate: valid, ...connectOptions() });
-  const link = $('#link') as HTMLElement & { room: unknown };
-  link.room = replica.room;
-  link.hidden = false;
+  $('#link').hidden = false;
+  ($('#link') as HTMLElement & { room: unknown }).room = replica.room;
   replica.on('change', draw);
   replica.room.on('peer-join', draw);
   replica.room.on('peer-leave', draw);

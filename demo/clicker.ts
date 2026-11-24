@@ -1,8 +1,7 @@
 import { createDeviceSync, createPublicStats, deviceId, ledger, type Ledger } from '../src/index.js';
 import { defineHostlessElements } from '../src/ui/index.js';
-import { $, chrome, expose, storageRelays } from './common.js';
+import { $, expose, storageRelays } from './common.js';
 
-chrome();
 defineHostlessElements();
 
 const APP = 'hostless-demo-clicker';
@@ -43,15 +42,7 @@ function render() {
   expose('__clicker', { clicks: clicks(), sync: sync.status, key: sync.key });
 }
 
-$('#click').addEventListener('click', (e) => {
-  const tap = e.currentTarget as HTMLElement;
-  const plus = document.createElement('span');
-  plus.className = 'plus';
-  plus.textContent = '+1';
-  plus.style.left = `${(e as MouseEvent).offsetX || 75}px`;
-  plus.style.top = `${(e as MouseEvent).offsetY || 40}px`;
-  tap.append(plus);
-  setTimeout(() => plus.remove(), 700);
+$('#click').addEventListener('click', () => {
   // this device's totals grew by one: the ledger keeps the part beyond the other devices
   write({ ledger: ledger.record(save.ledger, device, { clicks: clicks() + 1 }) });
   for (const f of listeners) f();
@@ -61,8 +52,7 @@ $('#click').addEventListener('click', (e) => {
 async function world() {
   try {
     const t = await stats.totals();
-    $('#world-total').textContent = (t.sums.clicks ?? 0).toLocaleString();
-    $('#world').textContent = `clicks by ${t.players} browser${t.players === 1 ? '' : 's'}, summed from public relays`;
+    $('#world').textContent = `${t.players} browser${t.players === 1 ? '' : 's'} clicked ${(t.sums.clicks ?? 0).toLocaleString()} times in total.`;
   } catch {
     $('#world').textContent = 'The relays could not be reached.';
   }

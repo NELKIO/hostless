@@ -9,39 +9,19 @@
 </head>
 <body>
   <main>
-    <div class="head">
-      <h1>Co-op canvas</h1>
-      <p>Everyone paints at the same time. Each stroke is a signed operation, and every screen applies them in the same order, so all players end up with the same picture.</p>
-      <div class="tags"><span class="tag a">Replica</span><span class="tag">signed ops</span><span class="tag">anti-entropy</span><span class="tag">total order</span></div>
-    </div>
-    <div class="layout">
-      <div>
-        <section class="card" id="lobby-card">
-          <h2>Open a canvas</h2>
-          <hostless-lobby id="lobby"></hostless-lobby>
-        </section>
-        <section class="card" id="paint" hidden>
-          <div class="palette" id="palette" role="toolbar" aria-label="colors"></div>
-          <div class="paint-wrap"><canvas class="paint" id="canvas" width="32" height="32"></canvas></div>
-          <div class="stats"><span class="tag" id="strokes">0 strokes</span><span class="tag m" id="painters">alone</span></div>
-        </section>
-      </div>
-      <aside class="side">
-        <section class="card">
-          <h2>Connection</h2>
-          <hostless-link id="link" hidden></hostless-link>
-          <p class="muted" style="margin: 8px 0 0; font-size: 14px">Share the room link and paint together.</p>
-        </section>
-        <section class="card">
-          <h2>What to try</h2>
-          <ul class="how">
-            <li><span><b>Paint the same pixel at once.</b> Both screens settle on the same colour.</span></li>
-            <li><span><b>Go offline and keep painting.</b> Your strokes merge when you reconnect.</span></li>
-            <li><span><b>Join late.</b> A newcomer gets the whole picture.</span></li>
-          </ul>
-        </section>
-      </aside>
-    </div>
+    <header>
+      <h1><a href="./">hostless</a> · co-op canvas</h1>
+      <hostless-link id="link" hidden></hostless-link>
+    </header>
+    <section class="card" id="lobby-card">
+      <p class="muted">Everyone paints at once (Replica): every stroke is a signed op, delivered causally, merged in the same total order on every screen.</p>
+      <hostless-lobby id="lobby"></hostless-lobby>
+    </section>
+    <section class="card" id="paint" hidden>
+      <div class="row" id="palette" role="toolbar" aria-label="colors"></div>
+      <canvas class="paint" id="canvas" width="32" height="32"></canvas>
+      <p class="muted" id="info" aria-live="polite"></p>
+    </section>
   </main>
   <script type="module" src="canvas.js"></script>
 </body>

@@ -3,65 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>hostless — multiplayer for static sites</title>
+  <title>hostless demos</title>
   <meta name="description" content="Serverless multiplayer for static sites: WebRTC when it works, public relays when it doesn't." />
   <link rel="icon" href="logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main>
-    <section class="hero">
-      <img src="logo.svg" alt="hostless logo" />
+    <header>
       <h1>hostless</h1>
-      <p class="lead">Multiplayer for static sites that refuses to disconnect.</p>
-      <p class="sub">Players meet with a room code. Traffic goes over WebRTC when it works, and over public Nostr relays and MQTT brokers when it does not. A closed tab doesn't lose the match. There is no server.</p>
-      <div class="row">
-        <a class="btn primary" href="tictactoe.html">Play tic-tac-toe →</a>
-        <a class="btn" href="https://github.com/NELKIO/hostless">GitHub</a>
-        <span class="code">$ npm i <b>hostless</b></span>
-      </div>
-    </section>
-
-    <div class="steps">
-      <div class="step"><span><b>Open a demo</b>Create a room: you get a code and a link.</span></div>
-      <div class="step"><span><b>Send the link</b>Open it on a phone or in another browser.</span></div>
-      <div class="step"><span><b>Break things</b>Turn off Wi-Fi, reload the tab, switch to a VPN. The game carries on.</span></div>
-    </div>
-
-    <div class="demos">
-      <a class="card demo" href="tictactoe.html">
-        <span class="ico">⭕</span>
-        <h2>Tic-tac-toe</h2>
-        <p>A turn-based match. Every move is signed and verified on both devices, and the game resumes after a reload.</p>
-        <div class="tags"><span class="tag a">TurnMatch</span><span class="tag">mailbox</span></div>
-      </a>
-      <a class="card demo" href="canvas.html">
-        <span class="ico">🎨</span>
-        <h2>Co-op canvas</h2>
-        <p>Everyone paints at once, and every screen ends up with the same picture.</p>
-        <div class="tags"><span class="tag a">Replica</span><span class="tag">op log</span></div>
-      </a>
-      <a class="card demo" href="clicker.html">
-        <span class="ico">👆</span>
-        <h2>Synced clicker</h2>
-        <p>Your progress follows you to your other devices, and you can see the totals of every player.</p>
-        <div class="tags"><span class="tag m">DeviceSync</span><span class="tag m">PublicStats</span></div>
-      </a>
-      <a class="card demo" href="netcheck.html">
-        <span class="ico">📡</span>
-        <h2>Connection check</h2>
-        <p>Which relays this network reaches, and whether a direct WebRTC link is likely.</p>
-        <div class="tags"><span class="tag">checkNetwork</span></div>
-      </a>
-    </div>
-
-    <div class="facts">
-      <div class="fact"><b>Every path at once</b>WebRTC, Nostr and MQTT, with one reliable, ordered link per player.</div>
-      <div class="fact"><b>Survives the tab</b>Moves are written to disk before they are sent.</div>
-      <div class="fact"><b>Private</b>Relays see random topics and ciphertext, and every move is signed.</div>
-      <div class="fact"><b>~35 KB gzip</b>The WebRTC part loads only when it is used.</div>
+      <a href="https://github.com/NELKIO/hostless">GitHub</a>
+    </header>
+    <p>Multiplayer for static sites. No server: players meet with a room code, talk over WebRTC when it works and over public Nostr relays and MQTT brokers when it does not, and a closed tab never loses the match. Every demo below is a static page.</p>
+    <p class="muted">Open a demo, create a room, and open the link on another device (or in another browser).</p>
+    <div class="grid">
+      <a class="card" href="tictactoe.html"><h2>Tic-tac-toe</h2><p class="muted">TurnMatch: signed moves, resume after reload, result from the mailbox.</p></a>
+      <a class="card" href="canvas.html"><h2>Co-op canvas</h2><p class="muted">Replica: everyone paints at once, same picture everywhere.</p></a>
+      <a class="card" href="clicker.html"><h2>Synced clicker</h2><p class="muted">DeviceSync + PublicStats: progress across devices, totals of the world.</p></a>
+      <a class="card" href="netcheck.html"><h2>Connection check</h2><p class="muted">What this network can reach.</p></a>
     </div>
   </main>
-  <script type="module" src="home.js"></script>
 </body>
 </html>
