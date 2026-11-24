@@ -1,0 +1,75 @@
+{
+  "name": "hostless",
+  "version": "0.1.0",
+  "description": "Serverless multiplayer for static sites: WebRTC when it works, public relays when it doesn't, matches that survive reloads, device sync without accounts.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "default": "./dist/ui/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "node tests/browser/run.mjs",
+    "test:live": "node tests/live/run.mjs",
+    "scan": "node scripts/scan-endpoints.mjs",
+    "demo": "node scripts/build.mjs --demo && node scripts/serve.mjs"
+  },
+  "keywords": [
+    "multiplayer",
+    "p2p",
+    "webrtc",
+    "nostr",
+    "mqtt",
+    "serverless",
+    "github-pages",
+    "static-site",
+    "crdt",
+    "game",
+    "relay",
+    "offline-first"
+  ],
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.0.1",
+    "fflate": "^0.8.3",
+    "trystero": "^0.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "fast-check": "^4.11.0",
+    "happy-dom": "^21.0.4",
+    "playwright-core": "^1.65.1",
+    "typescript": "5.8",
+    "vitest": "^3.2.7",
+    "ws": "^8.23.0"
+  }
+}
