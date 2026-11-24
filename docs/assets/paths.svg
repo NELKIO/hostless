@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="300" viewBox="0 0 880 300" role="img" aria-label="Every path at once: WebRTC direct, Nostr relays, MQTT brokers">
+  <style>
+    .t { font: 600 17px -apple-system, Segoe UI, Inter, Roboto, sans-serif; fill: #e8edff; }
+    .s { font: 13px -apple-system, Segoe UI, Inter, Roboto, sans-serif; fill: #9aa6c8; }
+    .lbl { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+  <rect width="880" height="300" rx="22" fill="#0b1020"/>
+  <!-- browsers -->
+  <g>
+    <rect x="28" y="88" width="150" height="124" rx="16" fill="#141c36" stroke="#2c3966"/>
+    <circle cx="48" cy="106" r="4" fill="#ff6b6b"/><circle cx="62" cy="106" r="4" fill="#ffd166"/><circle cx="76" cy="106" r="4" fill="#5ee6c0"/>
+    <text x="103" y="150" text-anchor="middle" class="t">Player A</text>
+    <text x="103" y="174" text-anchor="middle" class="s">static page</text>
+    <rect x="702" y="88" width="150" height="124" rx="16" fill="#141c36" stroke="#2c3966"/>
+    <circle cx="722" cy="106" r="4" fill="#ff6b6b"/><circle cx="736" cy="106" r="4" fill="#ffd166"/><circle cx="750" cy="106" r="4" fill="#5ee6c0"/>
+    <text x="777" y="150" text-anchor="middle" class="t">Player B</text>
+    <text x="777" y="174" text-anchor="middle" class="s">static page</text>
+  </g>
+  <!-- direct -->
+  <path d="M178 110 C 330 40, 550 40, 702 110" fill="none" stroke="#5ee6c0" stroke-width="4"/>
+  <rect x="352" y="34" width="176" height="28" rx="14" fill="#0f2a28" stroke="#5ee6c0"/>
+  <text x="440" y="53" text-anchor="middle" class="lbl" fill="#5ee6c0">WebRTC · direct</text>
+  <!-- nostr -->
+  <path d="M178 150 L 702 150" fill="none" stroke="#7c9cff" stroke-width="4" stroke-dasharray="10 8"/>
+  <g fill="#141c36" stroke="#7c9cff" stroke-width="2">
+    <circle cx="350" cy="150" r="13"/><circle cx="440" cy="150" r="13"/><circle cx="530" cy="150" r="13"/>
+  </g>
+  <rect x="362" y="166" width="156" height="28" rx="14" fill="#151d3d" stroke="#7c9cff"/>
+  <text x="440" y="185" text-anchor="middle" class="lbl" fill="#a9bcff">Nostr relays</text>
+  <!-- mqtt -->
+  <path d="M178 190 C 330 270, 550 270, 702 190" fill="none" stroke="#ffb86b" stroke-width="4" stroke-dasharray="3 8" stroke-linecap="round"/>
+  <rect x="362" y="238" width="156" height="28" rx="14" fill="#2a2013" stroke="#ffb86b"/>
+  <text x="440" y="257" text-anchor="middle" class="lbl" fill="#ffcf99">MQTT brokers</text>
+  <text x="440" y="114" text-anchor="middle" class="s">one reliable, encrypted link over every path at once</text>
+</svg>

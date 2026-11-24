@@ -11,10 +11,13 @@
   "files": [
     "dist",
     "README.md",
+    "README.ru.md",
     "LICENSE",
     "CHANGELOG.md",
     "AGENTS.md",
-    "docs/*.md"
+    "CLAUDE.md",
+    "docs/*.md",
+    "docs/assets"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

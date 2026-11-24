@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="hostless logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111a33"/>
+      <stop offset="1" stop-color="#0b1020"/>
+    </linearGradient>
+    <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="58" y1="58" x2="198" y2="216">
+      <stop offset="0" stop-color="#7c9cff"/>
+      <stop offset="1" stop-color="#5ee6c0"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <!-- the server that is not there -->
+  <circle cx="128" cy="113" r="17" fill="none" stroke="#56628f" stroke-width="4" stroke-dasharray="5 7" stroke-linecap="round"/>
+  <!-- peers talking directly -->
+  <g stroke="url(#edge)" stroke-width="9" stroke-linecap="round" fill="none">
+    <path d="M78 78 L178 78"/>
+    <path d="M78 78 L128 196"/>
+    <path d="M178 78 L128 196"/>
+  </g>
+  <g fill="#0b1020" stroke="#e8edff" stroke-width="8">
+    <circle cx="78" cy="78" r="20"/>
+    <circle cx="178" cy="78" r="20"/>
+    <circle cx="128" cy="196" r="20"/>
+  </g>
+  <g fill="#5ee6c0">
+    <circle cx="78" cy="78" r="7"/>
+    <circle cx="178" cy="78" r="7"/>
+    <circle cx="128" cy="196" r="7"/>
+  </g>
+</svg>
