@@ -42,6 +42,10 @@ export interface HostJournal<S = unknown> {
   seq: number;
   state: S | null;
   seats: Record<PeerId, number>;
+  /** guest: the host it follows */
+  host?: PeerId | null;
+  /** host: answers to recent requests per peer, stored with the state they produced */
+  answered?: Record<PeerId, Array<[string, unknown]>>;
 }
 
 export interface AuthorityEvents<S, A> {
@@ -65,8 +69,9 @@ export interface HostAuthorityOptions<S, A> {
   room: Room;
   engine: AuthorityEngine<S, A>;
   role: 'host' | 'guest';
-  /** guests: pin the host peer id (default: the first peer that announces itself as host) */
-  host?: PeerId;
+  /** guests: pin the host (its peer id, or a ≥ 8 hex prefix from the invite link); default: the
+   *  first peer that announces itself as host, remembered in the seat journal */
+  host?: string;
   maxSeats?: number;
   seat?: Seat<HostJournal<S>> | null;
   /** guest meta sent with join */
@@ -106,6 +111,7 @@ export class HostAuthority<S, A = unknown> {
   /** host: recent request ids per peer (duplicates are answered, not re-applied) */
   private answered = new Map<PeerId, Map<string, Msg<S, A>>>();
   private hostPeer: PeerId | null;
+  private hostPin: string | null;
   private hostSeen = 0;
   private hostOnline = false;
   private mySeat: number | null = null;
@@ -128,13 +134,16 @@ export class HostAuthority<S, A = unknown> {
     this.maxSeats = opts.maxSeats ?? 16;
     this.heartbeatMs = opts.heartbeatMs ?? 3000;
     this.meta = opts.meta ?? {};
-    this.hostPeer = opts.host ?? null;
+    this.hostPin = opts.host ? opts.host.toLowerCase() : null;
+    this.hostPeer = this.hostPin && this.hostPin.length === 64 ? this.hostPin : null;
     if (this.journalSeat && this.journalSeat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
     const j = this.journalSeat?.journal;
     if (j && j.v === 1 && j.code === this.room.code && j.role === opts.role) {
       this.seq = j.seq;
       this._state = j.state;
       for (const [p, s] of Object.entries(j.seats ?? {})) this.seatOf.set(p, s);
+      if (opts.role === 'guest' && typeof j.host === 'string' && !this.hostPeer && (!this.hostPin || j.host.startsWith(this.hostPin))) this.hostPeer = j.host;
+      for (const [p, list] of Object.entries(j.answered ?? {})) if (Array.isArray(list)) this.answered.set(p, new Map(list as Array<[string, Msg<S, A>]>));
     }
     if (this.isHost) {
       if (this._state === null) {
@@ -227,7 +236,19 @@ export class HostAuthority<S, A = unknown> {
   }
 
   private persist(): void {
-    this.journalSeat?.save({ v: 1, code: this.room.code, role: this.isHost ? 'host' : 'guest', seq: this.seq, state: this._state, seats: this.isHost ? this.seats : this.mySeat === null ? {} : { [this.room.peerId]: this.mySeat } });
+    if (!this.journalSeat) return;
+    const answered: Record<PeerId, Array<[string, unknown]>> = {};
+    if (this.isHost) for (const [p, memo] of this.answered) answered[p] = [...memo].slice(-50);
+    this.journalSeat.save({
+      v: 1,
+      code: this.room.code,
+      role: this.isHost ? 'host' : 'guest',
+      seq: this.seq,
+      state: this._state,
+      seats: this.isHost ? this.seats : this.mySeat === null ? {} : { [this.room.peerId]: this.mySeat },
+      host: this.isHost ? null : this.hostPeer,
+      ...(this.isHost ? { answered } : {}),
+    });
   }
 
   private heartbeat(peer?: PeerId): void {
@@ -237,16 +258,26 @@ export class HostAuthority<S, A = unknown> {
     else this.broadcast(msg);
   }
 
-  private commitAct(seat: number, kind: 'join' | 'leave' | 'act', action: unknown, next: S, meta?: Record<string, unknown>): number {
+  private commitAct(seat: number, kind: 'join' | 'leave' | 'act', action: unknown, next: S, meta?: Record<string, unknown>, request?: { peer: PeerId; id: string }): number {
     this._state = next;
     this.seq++;
+    // the answer to the request is stored in the same write as the state it produced: a host that
+    // reloads right after never applies a re-sent request twice
+    if (request) this.memo(request.peer).set(request.id, { v: AUTHORITY_PROTOCOL, t: 'ok', id: request.id, seq: this.seq });
     this.persist();
     this.broadcast({ v: AUTHORITY_PROTOCOL, t: 'act', seq: this.seq, seat, kind, action, ...(meta ? { meta } : {}), hash: this.hashOf(next) });
     this.events.emit('state', next, { seq: this.seq, seat, kind, action: action as A });
     return this.seq;
   }
 
-  private applyHost(peer: PeerId, seat: number, kind: 'act', action: A): number | string {
+  private memo(peer: PeerId): Map<string, Msg<S, A>> {
+    let memo = this.answered.get(peer);
+    if (!memo) this.answered.set(peer, (memo = new Map()));
+    while (memo.size > 200) memo.delete(memo.keys().next().value as string);
+    return memo;
+  }
+
+  private applyHost(peer: PeerId, seat: number, kind: 'act', action: A, requestId?: string): number | string {
     if (this.engine.validateAction && !this.engine.validateAction(action)) return 'invalid';
     let next: S | null | string;
     try {
@@ -256,8 +287,7 @@ export class HostAuthority<S, A = unknown> {
     }
     if (next === null) return 'rejected';
     if (typeof next === 'string') return next;
-    void peer;
-    return this.commitAct(seat, kind, action, next);
+    return this.commitAct(seat, kind, action, next, undefined, requestId ? { peer, id: requestId } : undefined);
   }
 
   private onJoin(peer: PeerId, meta: Record<string, unknown>): void {
@@ -280,14 +310,12 @@ export class HostAuthority<S, A = unknown> {
   private onRequest(peer: PeerId, id: string, action: A): void {
     const seat = this.seatOf.get(peer);
     if (seat === undefined) return this.send(peer, { v: AUTHORITY_PROTOCOL, t: 'rej', id, reason: 'no seat' });
-    let memo = this.answered.get(peer);
-    if (!memo) this.answered.set(peer, (memo = new Map()));
+    const memo = this.memo(peer);
     const prev = memo.get(id);
     if (prev) return this.send(peer, prev);
-    const r = this.applyHost(peer, seat, 'act', action);
+    const r = this.applyHost(peer, seat, 'act', action, id);
     const answer: Msg<S, A> = typeof r === 'number' ? { v: AUTHORITY_PROTOCOL, t: 'ok', id, seq: r } : { v: AUTHORITY_PROTOCOL, t: 'rej', id, reason: r };
     memo.set(id, answer);
-    if (memo.size > 200) memo.delete(memo.keys().next().value as string);
     this.send(peer, answer);
   }
 
@@ -378,7 +406,10 @@ export class HostAuthority<S, A = unknown> {
     }
     // guest
     if (m.t === 'host') {
-      if (this.hostPeer === null) this.hostPeer = peer;
+      if (this.hostPeer === null && (!this.hostPin || peer.startsWith(this.hostPin))) {
+        this.hostPeer = peer;
+        this.persist();
+      }
       if (peer !== this.hostPeer) return;
       this.hostSeen = this.clock.now();
       if (!this.hostOnline) {

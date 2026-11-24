@@ -69,6 +69,8 @@ export interface ReplicaOptions<T> {
   /** delay before own ops are flushed (batching) */
   batchMs?: number;
   maxOps?: number;
+  /** other authors' ops kept in the seat journal (a prefix per author; the rest is fetched again) */
+  journalOthers?: number;
 }
 
 type Msg<T> = { v: number; t: 'ops'; doc: string; ops: Op<T>[] } | { v: number; t: 'vec'; doc: string; vec: VersionVector; reply?: boolean };
@@ -83,11 +85,12 @@ export class Replica<T = unknown> {
   private journalSeat: Seat<ReplicaJournal<T>> | null;
   private validate: (op: unknown, author: PeerId) => boolean;
   private clock: Clock;
-  private o: { syncMs: number; batchMs: number; maxOps: number };
+  private o: { syncMs: number; batchMs: number; maxOps: number; journalOthers: number };
   private byAuthor = new Map<PeerId, Op<T>[]>();
   private pending = new Map<PeerId, Map<number, Op<T>>>();
   /** authors whose log contains an authentic but invalid op (a cheater or an incompatible build) */
   private blocked = new Set<PeerId>();
+  private pendingCount = 0;
   private log: Op<T>[] = [];
   private sorted: Op<T>[] = [];
   private lamport = 0;
@@ -105,7 +108,7 @@ export class Replica<T = unknown> {
     this.journalSeat = opts.seat ?? null;
     this.validate = opts.validate ?? (() => true);
     this.clock = opts.clock ?? realClock;
-    this.o = { syncMs: opts.syncMs ?? 4000, batchMs: opts.batchMs ?? 30, maxOps: opts.maxOps ?? 100_000 };
+    this.o = { syncMs: opts.syncMs ?? 4000, batchMs: opts.batchMs ?? 30, maxOps: opts.maxOps ?? 100_000, journalOthers: opts.journalOthers ?? 5000 };
     if (this.journalSeat && this.journalSeat.peerId !== this.room.peerId) throw new Error('hostless: the seat identity must be the room identity');
     const j = this.journalSeat?.journal;
     if (j && j.v === 1 && j.code === this.room.code && j.doc === this.doc && Array.isArray(j.ops)) this.ingest(j.ops, false);
@@ -174,7 +177,7 @@ export class Replica<T = unknown> {
     const l = this.lamport + 1;
     const at = this.clock.now();
     const stamped: Op<T> = { a: me, n, l, at, op, sig: this.room.identity.signValue({ doc: this.doc, a: me, n, l, at, op }) };
-    if (this.journalSeat && !this.journalSeat.commit(this.journal([...this.log, stamped]))) {
+    if (this.journalSeat && !this.journalSeat.commit(this.journal(stamped))) {
       this.events.emit('storage-error');
       return null;
     }
@@ -196,8 +199,23 @@ export class Replica<T = unknown> {
 
   // ---------------------------------------------------------------- state
 
-  private journal(ops: Op<T>[] = this.log): ReplicaJournal<T> {
-    return { v: 1, code: this.room.code, doc: this.doc, ops };
+  /**
+   * What the seat stores: every op of ours (they may exist nowhere else yet) and a prefix of every
+   * other author's ops up to `journalOthers` in total (prefixes keep each author contiguous; the rest
+   * comes back by anti-entropy). Keeps localStorage writes bounded for long sessions.
+   */
+  private journal(extra?: Op<T>): ReplicaJournal<T> {
+    const me = this.room.peerId;
+    const out: Op<T>[] = [...(this.byAuthor.get(me) ?? [])];
+    if (extra) out.push(extra);
+    let budget = this.o.journalOthers;
+    for (const [a, list] of this.byAuthor) {
+      if (a === me || budget <= 0) continue;
+      const take = list.slice(0, budget);
+      budget -= take.length;
+      out.push(...take);
+    }
+    return { v: 1, code: this.room.code, doc: this.doc, ops: out };
   }
 
   private scheduleSave(): void {
@@ -249,15 +267,19 @@ export class Replica<T = unknown> {
     const touched = new Set<PeerId>();
     for (const x of list) {
       if (!this.wellFormed(x) || this.blocked.has(x.a)) continue;
+      // no honest op can carry a clock or a number beyond the whole log's size: one that does would
+      // push every replica's Lamport clock past the safe-integer range and silence everyone after it
+      if (x.l > this.o.maxOps || x.n > this.o.maxOps) continue;
       const have = this.byAuthor.get(x.a)?.length ?? 0;
-      if (x.n <= have) continue;
+      if (x.n <= have || x.n > have + 1000) continue;
       let buf = this.pending.get(x.a);
       if (buf?.has(x.n)) continue;
-      if (this.log.length + (buf?.size ?? 0) >= this.o.maxOps) break;
+      if (this.log.length + this.pendingCount >= this.o.maxOps || this.pendingCount >= 10_000) break;
       // signature first: a forged op must never get a genuine author blocked
       if (!verifyValue(x.a, { doc: this.doc, a: x.a, n: x.n, l: x.l, at: x.at, op: x.op }, x.sig)) continue;
       if (!this.validate(x.op, x.a)) {
         this.blocked.add(x.a);
+        this.pendingCount -= this.pending.get(x.a)?.size ?? 0;
         this.pending.delete(x.a);
         touched.delete(x.a);
         if (emit) this.events.emit('invalid', { author: x.a, n: x.n });
@@ -265,6 +287,7 @@ export class Replica<T = unknown> {
       }
       if (!buf) this.pending.set(x.a, (buf = new Map()));
       buf.set(x.n, { a: x.a, n: x.n, l: x.l, at: x.at, op: x.op, sig: x.sig });
+      this.pendingCount++;
       touched.add(x.a);
     }
     let applied = 0;
@@ -273,6 +296,7 @@ export class Replica<T = unknown> {
       for (let next = (this.byAuthor.get(a)?.length ?? 0) + 1; buf.has(next); next++) {
         const op = buf.get(next)!;
         buf.delete(next);
+        this.pendingCount--;
         this.accept(op);
         applied++;
         if (emit) this.events.emit('op', op, { mine: op.a === this.room.peerId });

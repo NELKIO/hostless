@@ -127,6 +127,8 @@ export interface TurnMatchOptions<S, M, L> {
   silentMs?: number;
   reconnectMs?: number;
   headMs?: number;
+  /** guests: accept a match only from this host (its peer id, or a prefix of ≥ 8 hex chars from the invite link) */
+  host?: string | null;
 }
 
 interface Live<S> extends Header {
@@ -149,7 +151,9 @@ type Msg =
   | StateMsg
   | { v: number; t: 'head'; id: string | null; len: number; last: string }
   | { v: number; t: 'want'; id: string; from: number }
-  | { v: number; t: 'stop'; id: string | null; reason: StopReason };
+  | { v: number; t: 'stop'; id: string | null; reason: StopReason }
+  /** host: the match (still without moves) is replaced because a lineup changed */
+  | { v: number; t: 'reset'; id: string };
 
 const MAX_HISTORY = 100_000;
 const validMatchId = (x: unknown): x is string => typeof x === 'string' && /^[0-9a-f]{16,64}$/.test(x);
@@ -183,8 +187,13 @@ export class TurnMatch<S, M = unknown, L = unknown> {
   private lookupAt = new Map<PeerId, { next: number; delay: number }>();
   private offs: Array<() => void> = [];
   private timer: unknown;
+  private hostPin: string | null;
+  private readyAnswered = new Map<PeerId, number>();
+  private staleAnswered = new Set<string>();
+  private incompatibleAt = new Map<PeerId, number>();
 
   constructor(opts: TurnMatchOptions<S, M, L>) {
+    this.hostPin = opts.host ? opts.host.toLowerCase() : null;
     this.room = opts.room;
     this.engine = opts.engine;
     this.isHost = opts.role === 'host';
@@ -451,8 +460,12 @@ export class TurnMatch<S, M = unknown, L = unknown> {
     if (!isRecord(raw) || typeof raw.t !== 'string') return;
     const msg = raw as unknown as Msg;
     if (msg.v !== TURN_PROTOCOL) {
+      // never answer a stop (two versions would answer each other forever); at most every 10 s
+      const now = this.clock.now();
+      if (now - (this.incompatibleAt.get(peer) ?? -Infinity) < 10_000) return;
+      this.incompatibleAt.set(peer, now);
       this.events.emit('incompatible', { peer, reason: `turn protocol ${String(msg.v)}` });
-      this.send(peer, { v: TURN_PROTOCOL, t: 'stop', id: null, reason: 'version' });
+      if (msg.t !== 'stop') this.send(peer, { v: TURN_PROTOCOL, t: 'stop', id: null, reason: 'version' });
       return;
     }
     this.touch(peer);
@@ -469,13 +482,44 @@ export class TurnMatch<S, M = unknown, L = unknown> {
         return;
       case 'stop':
         return this.onStop(peer, msg);
+      case 'reset':
+        return this.onReset(peer, msg);
     }
+  }
+
+  private onReset(peer: PeerId, msg: Extract<Msg, { t: 'reset' }>): void {
+    const m = this.match;
+    if (!m || msg.id !== m.id || peer !== m.seats[0] || m.history.length > 0) return;
+    this.match = null;
+    this.persist();
+    this.emit();
+    this.send(peer, { v: TURN_PROTOCOL, t: 'ready', rev: this.rev, lineup: this.lineup });
   }
 
   private onReady(peer: PeerId, msg: Extract<Msg, { t: 'ready' }>): void {
     if (this.match) {
-      // a seat that lost its journal comes back to the lobby: give it the match
-      if (this.match.seats.includes(peer)) this.send(peer, this.stateMsg(0));
+      const m = this.match;
+      const seat = m.seats.indexOf(peer);
+      if (seat < 0 || !Number.isSafeInteger(msg.rev)) return;
+      const prev = this.lobbyOf.get(peer);
+      const newer = !prev || msg.rev > prev.rev;
+      if (this.isHost && newer && m.history.length === 0 && stableJson(msg.lineup) !== stableJson(m.lineups[seat])) {
+        // the lineup changed before the first move: replace the match (never answer a mismatch
+        // with the same mismatch, or both sides loop)
+        if (msg.lineup !== null && this.engine.validateLineup && !this.engine.validateLineup(msg.lineup)) return;
+        this.lobbyOf.set(peer, { rev: msg.rev, lineup: msg.lineup });
+        for (const p of m.seats) if (p !== this.room.peerId) this.send(p, { v: TURN_PROTOCOL, t: 'reset', id: m.id });
+        this.match = null;
+        this.persist();
+        this.emit();
+        this.tryStart();
+        return;
+      }
+      // a seat that lost its journal comes back to the lobby: give it the match (once per revision)
+      if ((this.readyAnswered.get(peer) ?? -1) < msg.rev) {
+        this.readyAnswered.set(peer, msg.rev);
+        this.send(peer, this.stateMsg(0));
+      }
       return;
     }
     if (this.stopped || !Number.isSafeInteger(msg.rev)) return;
@@ -486,6 +530,8 @@ export class TurnMatch<S, M = unknown, L = unknown> {
       return;
     }
     this.lobbyOf.set(peer, { rev: msg.rev, lineup: msg.lineup });
+    // the first word from a peer may mean it just opened the game and missed ours: answer once
+    if (!prev) this.send(peer, { v: TURN_PROTOCOL, t: 'ready', rev: this.rev, lineup: this.lineup });
     this.events.emit('lobby', this.lobby);
     this.emit();
     this.tryStart();
@@ -574,6 +620,7 @@ export class TurnMatch<S, M = unknown, L = unknown> {
     if (new Set(h.seats).size !== h.seats.length) return null;
     const mySeat = h.seats.indexOf(this.room.peerId);
     if (mySeat < 0) return null;
+    if (this.hostPin && mySeat !== 0 && !h.seats[0].startsWith(this.hostPin)) return null;
     if (!verifyValue(h.seats[0], { id: h.id, seats: h.seats, lineups: h.lineups, sig: h.sig }, h.hs)) return null;
     if (this.engine.validateLineup && !h.lineups.every((l) => this.engine.validateLineup!(l))) return null;
     let state: S;
@@ -619,10 +666,14 @@ export class TurnMatch<S, M = unknown, L = unknown> {
     let fresh = false;
     if (!m) {
       if (archived || this.stopped) return false;
+      // only a header genuinely signed by its host (and the pinned host, if any) is worth a look
+      if (!Array.isArray(msg.seats) || typeof msg.seats[0] !== 'string' || !msg.seats.includes(this.room.peerId)) return false;
+      if (this.hostPin && msg.seats[0] !== this.room.peerId && !msg.seats[0].startsWith(this.hostPin)) return false;
+      if (!verifyValue(msg.seats[0], { id: msg.id, seats: msg.seats, lineups: msg.lineups, sig: msg.sig }, msg.hs)) return false;
       const live = this.verifyHeader(msg);
       if (!live) {
-        // a header we cannot reproduce: different rules or a tampered setup
-        if (Array.isArray(msg.seats) && msg.seats.includes(this.room.peerId)) {
+        // an authentic header we cannot reproduce: different rules
+        {
           this.events.emit('incompatible', { peer, reason: 'setup mismatch' });
           this.send(peer, { v: TURN_PROTOCOL, t: 'stop', id: msg.id, reason: 'version' });
           this.stop('version', peer);
@@ -630,8 +681,12 @@ export class TurnMatch<S, M = unknown, L = unknown> {
         return false;
       }
       if (stableJson(live.lineups[live.mySeat]) !== stableJson(this.lineup)) {
-        // the host started with an older lineup of ours: tell it the current one again
-        this.send(peer, { v: TURN_PROTOCOL, t: 'ready', rev: this.rev, lineup: this.lineup });
+        // the host started with an older lineup of ours: tell it the current one (once per match;
+        // the host replaces the match)
+        if (!this.staleAnswered.has(`${live.id}/${this.rev}`)) {
+          this.staleAnswered.add(`${live.id}/${this.rev}`);
+          this.send(peer, { v: TURN_PROTOCOL, t: 'ready', rev: this.rev, lineup: this.lineup });
+        }
         return false;
       }
       m = live;

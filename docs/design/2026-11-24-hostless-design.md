@@ -146,7 +146,7 @@ Port of influence `MpPeer`, generalised to N peers and pluggable paths:
   backoff ×2^min(tries,3); every retransmit goes on **all** reachable paths; a path that becomes
   reachable immediately carries every unacked segment (seamless switch); a path that speaks again
   after a pause "kicks" pending retransmits.
-- per-path ping/pong RTT (2 s direct, 15 s relay in use, 30 s relay idle).
+- per-path ping/pong RTT (2 s direct, 4 s relay in use — it also drives liveness —, 30 s relay idle).
 - messages are JSON values; > 1 KB are deflated; split into segments that fit the smallest
   `maxFrame` of the paths that could carry them; reassembled in order.
 - unreliable sends (`{reliable:false}`) go once on `best()`; latest-wins helpers for cursors.
@@ -172,11 +172,15 @@ room.peers() → PeerInfo[] { id, meta, state, path: 'direct'|'relay'|null, rtt 
 room.leave()   // sends bye, closes paths; also on pagehide
 ```
 
-- HELLO broadcast on every path when it comes up, then every 2 s while a known peer is unconfirmed,
-  otherwise every 20 s; addressed HELLO in reply to an unknown sid.
+- HELLO broadcast on every path when it comes up, then every 1 s while a known peer is unconfirmed,
+  every 3 s while alone, otherwise every 20 s; addressed HELLO in reply to an unknown sid.
+- liveness counts only news (a new data segment, an advancing ack, a ping with a newer timestamp,
+  a pong to our own ping, a newer hello): replayed frames never keep a peer alive.
+- after a goodbye a session is never re-admitted; after a timeout only by a newer hello.
 - liveness: `away` after 12 s of silence, `leave` after `leaveMs` (60 s, configurable) or BYE;
   `back` when traffic returns. Peer restarts (new sid, newer hello) emit `peer-restart`.
-- capacity: peers beyond `maxPeers` (first come by hello `at`) are not linked and get `full`.
+- capacity: peers beyond `maxPeers` (in local arrival order) are not linked and get `full`; peers
+  may briefly disagree about who got the last place in a race.
 - `channel` lets several sessions share one room (`tm`, `rp`, `ha`, app's own).
 
 ## 8. Sessions
@@ -193,7 +197,10 @@ interface TurnEngine<S, M, L> {
   signature?(state: S): string;             // default: sha256(stableJson(state))
 }
 ```
-- lobby: each seat sends `ready{rev, lineup|null, prefs}`; latest revision wins.
+- lobby: each seat sends `ready{rev, lineup|null}`; latest revision wins. A lineup that changes
+  after the host started but before the first move makes the host replace the match (`reset`).
+- guests may pin the host (`host`: peer id or invite-link prefix); only authentic headers of that
+  host are considered.
 - the host (seat 0) starts when every seat has a lineup: random `matchId`, seats bound to peer
   ids, `signature` of the initial state; sends `state{matchId, seats, lineups, signature, base, moves}`.
   Others accept only if their own lineup is unchanged and `setup` reproduces the signature;

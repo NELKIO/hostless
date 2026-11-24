@@ -96,6 +96,7 @@ export class Seat<J = unknown> {
   private rec: SeatRecord<J>;
   private durableIdentity: boolean;
   private released = false;
+  private failing = false;
 
   /** use `openSeat()` */
   constructor(
@@ -119,7 +120,7 @@ export class Seat<J = unknown> {
 
   /** the seat survives a reload */
   get persistent(): boolean {
-    return this.persist && this.durableIdentity;
+    return this.persist && this.durableIdentity && !this.failing;
   }
 
   get journal(): J | null {
@@ -144,10 +145,13 @@ export class Seat<J = unknown> {
       this.scope.volatile.set(this.key, next as SeatRecord);
       return 'memory';
     }
-    if (this.store.setJson(this.key, next)) return 'durable';
-    // storage stopped accepting writes (quota, revoked permission): from now on this seat is
-    // memory-only, and commit() refuses while the identity is still on disk
-    this.persist = false;
+    if (this.store.setJson(this.key, next)) {
+      this.failing = false;
+      return 'durable';
+    }
+    // storage refused this write (quota, revoked permission): keep it in memory, refuse commits
+    // while the identity is on disk, and try the disk again on the next write
+    this.failing = true;
     this.scope.volatile.set(this.key, next as SeatRecord);
     return 'memory';
   }

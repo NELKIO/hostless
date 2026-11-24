@@ -334,13 +334,17 @@ export class DeviceSync<D> {
         const nowS = Math.floor(this.clock.now() / 1000);
         // never behind what a relay holds (the relay keeps only the newest); a device clock far
         // ahead is followed by at most ten minutes
-        const tries = [Math.max(nowS, Math.min(this.latestCreated + 1, nowS + 600))];
+        const first = Math.max(nowS, Math.min(this.latestCreated + 1, nowS + 600));
+        // a clock far behind would publish below what the relays hold (they keep only the newest)
+        const tries = first <= this.latestCreated ? [this.latestCreated + 1] : [first];
         if (this.latestCreated && tries[0] !== this.latestCreated + 1) tries.push(this.latestCreated + 1);
         for (const createdAt of tries) {
           const pub = await publishEvent(sealDoc(acc, envelope, createdAt), { relays: reachable, ws: this.o.ws, timeoutMs });
-          if (pub.accepted) {
+          // "duplicate: have a newer version" is an OK that did not store anything
+          const stored = pub.replies.filter((r) => r.ok && !/^duplicate/i.test(r.message ?? '')).length;
+          if (stored) {
             this.latestCreated = Math.max(this.latestCreated, createdAt);
-            held = Math.max(held, pub.accepted);
+            held = Math.max(held, stored);
             break;
           }
         }

@@ -59,10 +59,18 @@ export const formatSyncKey = (key: string) => formatCode(key, 4);
  * A shareable link: `base` without its fragment plus `#param=code`. The code lives in the fragment,
  * so it is never sent to the web server hosting the page.
  */
-export function inviteLink(code: string, { param = 'room', base }: { param?: string; base?: string } = {}): string {
+export function inviteLink(code: string, { param = 'room', base, host }: { param?: string; base?: string; host?: string } = {}): string {
   const href = base ?? globalThis.location?.href ?? '';
   const clean = href.split('#')[0];
-  return `${clean}#${param}=${code}`;
+  // `host`: the inviting player's peer id (shortened to 16 hex); guests then accept a match only
+  // from that identity, even if someone else holding the code tries to start one first
+  return `${clean}#${param}=${code}${host ? `&host=${host.slice(0, 16).toLowerCase()}` : ''}`;
+}
+
+/** The host hint of an invite link (`&host=…`), or null. */
+export function parseHostHint(value: unknown): string | null {
+  const m = /(?:^|[#?&])host=([0-9a-f]{8,64})(?:$|[&#\s])/i.exec(String(value ?? ''));
+  return m ? m[1].toLowerCase() : null;
 }
 
 /** Remove `param=…` from the current URL fragment (after the code was read), keeping history clean. */

@@ -16,7 +16,7 @@ export type { AppInfo } from './room/frames.js';
 export { roomSecrets, type RoomSecrets } from './room/secrets.js';
 export { Link, type LinkOptions } from './room/link.js';
 
-export { ALPHABET, newRoomCode, parseRoomCode, newSyncKey, parseSyncKey, parseCode, formatCode, formatSyncKey, inviteLink, consumeLinkParam } from './code.js';
+export { ALPHABET, newRoomCode, parseRoomCode, newSyncKey, parseSyncKey, parseCode, formatCode, formatSyncKey, inviteLink, parseHostHint, consumeLinkParam } from './code.js';
 export { Identity, verifyValue, isPeerId, type PeerId } from './identity.js';
 
 export type { Path, PathContext, PathEvents, PathFactory, PathKind } from './paths/types.js';

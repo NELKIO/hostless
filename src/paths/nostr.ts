@@ -222,8 +222,19 @@ export class NostrPath implements Path {
       if (!hop) this.retry(conn);
       return;
     }
-    if (hop) conn.next = ws;
-    else conn.ws = ws;
+    if (hop) {
+      conn.next = ws;
+      // a replacement that never opens must not hold the relay hostage: give up on it after a while
+      this.clock.setTimeout(() => {
+        if (conn.next !== ws || ws.readyState === WS_OPEN) return;
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+        ws.onclose?.({});
+      }, this.okTimeoutMs * 3);
+    } else conn.ws = ws;
     const current = () => conn.ws === ws || conn.next === ws;
     ws.onopen = () => {
       if (!current() || this.closed) return;
@@ -465,6 +476,7 @@ export class NostrPath implements Path {
     if (conn.next || this.maybeHop(conn, text.length)) {
       // a fresh socket is on its way: the event goes out on it
       conn.unconfirmed.set(id, { at: now + this.okTimeoutMs, text });
+      if (conn.unconfirmed.size > 200) conn.unconfirmed.delete(conn.unconfirmed.keys().next().value as string);
       return;
     }
     try {

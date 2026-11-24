@@ -18,3 +18,10 @@ merged into one library.
   (hexceed), non-idempotent merge (hexceed), 4-symbol codes (influence), replayed-hello link resets
   (influence), silent queue eviction (influence), missing tab lock (influence), retransmission bursts
   that re-froze relay sockets (new), throwing `new WebSocket` (locator).
+- Hardened after an independent review: replay-proof liveness (replayed relay frames no longer keep a
+  vanished peer alive), no ghost peers after a goodbye, no key agreement or cache growth for unknown
+  senders, segment size limits, no lobby livelock when a lineup changes while the host starts (the
+  host replaces the match), no version-reply loops, optional host pinning via invite links, host
+  answers persisted with the state (no double-applied requests after a host reload), bounded Lamport
+  clocks and pending buffers in Replica, bounded Replica journals, seats that recover from a failed
+  write, a timeout for Nostr replacement sockets, correct publishing from devices whose clock is behind.

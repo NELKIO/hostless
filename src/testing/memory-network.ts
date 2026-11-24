@@ -226,6 +226,12 @@ export class MemoryNetwork {
     for (const key of [`${a}|${b}`, `${b}|${a}`]) blocked ? m.blocked.add(key) : m.blocked.delete(key);
   }
 
+  /** Silently drop frames from `from` to `to` only (one direction). */
+  block(name: string, from: PeerId, to: PeerId, blocked = true): void {
+    const m = this.get(name);
+    blocked ? m.blocked.add(`${from}|${to}`) : m.blocked.delete(`${from}|${to}`);
+  }
+
   /** Silently drop everything to and from a peer on a medium (a frozen socket / dead channel). */
   freeze(name: string, peer: PeerId, frozen = true): void {
     const m = this.get(name);

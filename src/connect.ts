@@ -110,13 +110,15 @@ export interface TurnMatchSetup<S, M, L> extends SessionOptions {
   /** leave finished histories in the Nostr mailbox; default true */
   mailbox?: boolean;
   mailboxRelays?: readonly string[];
+  /** guests: the host's peer id or invite-link hint (`parseHostHint(location.href)`) */
+  host?: string | null;
 }
 
 /** Open the seat, join the room and start a TurnMatch in one call. */
 export async function createTurnMatch<S, M = unknown, L = unknown>(o: TurnMatchSetup<S, M, L>): Promise<Hosted<TurnMatch<S, M, L>>> {
   const { room, seat } = await seatAndRoom<TurnJournal>(o, o.role);
   const mailbox = o.mailbox === false ? null : new Mailbox({ secrets: room.secrets, identity: room.identity, relays: o.mailboxRelays });
-  const match = new TurnMatch<S, M, L>({ room, engine: o.engine, role: o.role, seats: o.seats, seat, mailbox, clock: o.clock });
+  const match = new TurnMatch<S, M, L>({ room, engine: o.engine, role: o.role, seats: o.seats, seat, mailbox, clock: o.clock, host: o.host });
   return host(match, room, seat as Seat<unknown> | null, () => match.leave());
 }
 
@@ -135,10 +137,12 @@ export interface AuthoritySetup<S, A> extends SessionOptions {
   engine: AuthorityEngine<S, A>;
   role: 'host' | 'guest';
   maxSeats?: number;
+  /** guests: the host's peer id or invite-link hint */
+  host?: string | null;
 }
 
 export async function createHostAuthority<S, A = unknown>(o: AuthoritySetup<S, A>): Promise<Hosted<HostAuthority<S, A>>> {
   const { room, seat } = await seatAndRoom<HostJournal<S>>(o, `authority:${o.role}`);
-  const session = new HostAuthority<S, A>({ room, engine: o.engine, role: o.role, seat, maxSeats: o.maxSeats, meta: o.meta, clock: o.clock });
+  const session = new HostAuthority<S, A>({ room, engine: o.engine, role: o.role, seat, maxSeats: o.maxSeats, meta: o.meta, clock: o.clock, host: o.host ?? undefined });
   return host(session, room, seat as Seat<unknown> | null, () => session.destroy());
 }
