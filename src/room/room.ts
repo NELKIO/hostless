@@ -299,6 +299,7 @@ export class Room {
         this.refreshReach();
       }),
       ev.on('via-gone', () => this.refreshReach()),
+      ev.on('via-join', () => this.helloOn(path, null)),
       ev.on('error', (code, detail) => this.events.emit('path', { name: path.name, up: path.up, error: `${code}: ${detail}` })),
     );
   }
@@ -582,7 +583,7 @@ export class Room {
       meta: p.meta,
       app: p.app,
       state: p.state,
-      route: p.route,
+      route: p.link.stopped ? p.route : p.link.route(),
       rtt: p.link.rtt(),
       paths: [...p.reachable],
       joinedAt: p.joinedAt,

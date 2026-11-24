@@ -13,6 +13,8 @@ export interface PathEvents {
   /** the path can send to the room */
   up: [];
   down: [];
+  /** a transport-level peer appeared (direct path): it should get our hello now */
+  'via-join': [via: unknown];
   /** a transport-level peer went away (direct path); bound identities on it are no longer reachable */
   'via-gone': [via: unknown];
   /** a path-level problem worth showing in diagnostics */
